@@ -1,0 +1,5 @@
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\ChartParser\ChartParser\obj\Debug\ChartParser.csprojResolveAssemblyReference.cache
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\ChartParser\ChartParser\bin\Debug\ChartParser.dll
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\ChartParser\ChartParser\bin\Debug\ChartParser.pdb
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\ChartParser\ChartParser\obj\Debug\ChartParser.dll
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\ChartParser\ChartParser\obj\Debug\ChartParser.pdb
