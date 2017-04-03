@@ -574,6 +574,16 @@ namespace Moonscraper
             /// Converts a tick position into the time it will appear in the song.
             /// </summary>
             /// <param name="position">Tick position.</param>
+            /// <returns>Returns the time in seconds.</returns>
+            public float ChartPositionToTime(uint position)
+            {
+                return ChartPositionToTime(position, this.resolution);
+            }
+
+            /// <summary>
+            /// Converts a tick position into the time it will appear in the song.
+            /// </summary>
+            /// <param name="position">Tick position.</param>
             /// <param name="resolution">Ticks per beat, usually provided from the resolution song of a Song class.</param>
             /// <returns>Returns the time in seconds.</returns>
             public float ChartPositionToTime(uint position, float resolution)
