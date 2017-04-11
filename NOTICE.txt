@@ -1,6 +1,0 @@
-Moonscraper Chart Editor- Chart file parser
-Copyright 2017 Alexander "FireFox" Ong
-
-This product includes software developed by 
-Youtube user Alexander "FireFox" Ong (https://www.youtube.com/user/FireFox2000000)
-with orginal source provided at Github (https://github.com/FireFox2000000/Moonscraper-Chart-Parser)
