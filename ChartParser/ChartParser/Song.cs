@@ -9,6 +9,7 @@ namespace Moonscraper
     {
         public class Song
         {
+            const int NUM_OF_DIFFICULTIES = 4;
             public static bool streamAudio = true;
 
             const int MUSIC_STREAM_ARRAY_POS = 0;
@@ -45,18 +46,6 @@ namespace Moonscraper
 
             // Charts
             Chart[] charts = new Chart[12];
-            public Chart easy_single { get { return charts[0]; } }
-            public Chart easy_double_guitar { get { return charts[1]; } }
-            public Chart easy_double_bass { get { return charts[2]; } }
-            public Chart medium_single { get { return charts[3]; } }
-            public Chart medium_double_guitar { get { return charts[4]; } }
-            public Chart medium_double_bass { get { return charts[5]; } }
-            public Chart hard_single { get { return charts[6]; } }
-            public Chart hard_double_guitar { get { return charts[7]; } }
-            public Chart hard_double_bass { get { return charts[8]; } }
-            public Chart expert_single { get { return charts[9]; } }
-            public Chart expert_double_guitar { get { return charts[10]; } }
-            public Chart expert_double_bass { get { return charts[11]; } }
 
             List<Event> _events;
             List<SyncTrack> _syncTrack;
@@ -139,40 +128,40 @@ namespace Moonscraper
                     switch (i)
                     {
                         case (0):
-                            name = "Easy Single";
+                            name = "Guitar - Expert";
                             break;
                         case (1):
-                            name = "Easy Double Guitar";
+                            name = "Guitar - Hard";
                             break;
                         case (2):
-                            name = "Easy Double Bass";
+                            name = "Guitar - Medium";
                             break;
                         case (3):
-                            name = "Medium Single";
+                            name = "Guitar - Easy";
                             break;
                         case (4):
-                            name = "Medium Double Guitar";
+                            name = "Guitar - Co-op - Expert";
                             break;
                         case (5):
-                            name = "Medium Double Bass";
+                            name = "Guitar - Co-op - Hard";
                             break;
                         case (6):
-                            name = "Hard Single";
+                            name = "Guitar - Co-op - Medium";
                             break;
                         case (7):
-                            name = "Hard Double Guitar";
+                            name = "Guitar - Co-op - Easy";
                             break;
                         case (8):
-                            name = "Hard Double Bass";
+                            name = "Bass - Expert";
                             break;
                         case (9):
-                            name = "Expert Single";
+                            name = "Bass - Hard";
                             break;
                         case (10):
-                            name = "Expert Double Guitar";
+                            name = "Bass - Medium";
                             break;
                         case (11):
-                            name = "Expert Double Bass";
+                            name = "Bass - Easy";
                             break;
                         default:
                             name = string.Empty;
@@ -192,6 +181,20 @@ namespace Moonscraper
                 length = 60 * 5;
 
                 updateArrays();
+            }
+
+            public Chart GetChart(Instrument instrument, Difficulty difficulty)
+            {
+                try
+                {
+                    return charts[(int)instrument * NUM_OF_DIFFICULTIES + (int)difficulty];
+                }
+                catch (System.Exception e)
+                {
+                    //Debug.LogError(e.Message);
+                    System.Console.Write(e.Message);
+                    return charts[0];
+                }
             }
 
             // Creating a new song from audio
@@ -508,7 +511,7 @@ namespace Moonscraper
                 // Search for the last bpm
                 foreach (BPM bpmInfo in bpms)
                 {
-                    if (ChartPositionToTime(bpmInfo.position, resolution) >= time)
+                    if (bpmInfo.assignedTime >= time)
                     {
                         break;
                     }
@@ -525,18 +528,20 @@ namespace Moonscraper
             }
 
             /// <summary>
-            /// Finds the value of the first bpm that appears before the specified tick position.
+            /// Finds the value of the first bpm that appears before or on the specified tick position.
             /// </summary>
             /// <param name="position">The tick position</param>
             /// <returns>Returns the value of the bpm that was found.</returns>
             public uint GetPrevBPM(uint position)
             {
-                for (int i = 0; i < bpms.Length; ++i)
+                int closestPos = SongObject.FindClosestPosition(position, bpms);
+                if (closestPos != SongObject.NOTFOUND)
                 {
-                    if (i + 1 >= bpms.Length)
-                        return bpms[i].value;
-                    else if (bpms[i + 1].position > position)
-                        return bpms[i].value;
+                    // Select the smaller of the two
+                    if (bpms[closestPos].position <= position)
+                        return bpms[closestPos].position;
+                    else if (closestPos > 0)
+                        return bpms[closestPos - 1].position;
                 }
 
                 return bpms[0].value;
@@ -549,12 +554,14 @@ namespace Moonscraper
             /// <returns>Returns the value of the time signature that was found.</returns>
             public uint GetPrevTS(uint position)
             {
-                for (int i = 0; i < timeSignatures.Length; ++i)
+                int closestPos = SongObject.FindClosestPosition(position, timeSignatures);
+                if (closestPos != SongObject.NOTFOUND)
                 {
-                    if (i + 1 >= timeSignatures.Length)
-                        return timeSignatures[i].numerator;
-                    else if (timeSignatures[i + 1].position > position)
-                        return timeSignatures[i].numerator;
+                    // Select the smaller of the two
+                    if (timeSignatures[closestPos].position <= position)
+                        return timeSignatures[closestPos].position;
+                    else if (closestPos > 0)
+                        return timeSignatures[closestPos - 1].position;
                 }
 
                 return timeSignatures[0].numerator;
@@ -727,73 +734,73 @@ namespace Moonscraper
 #if SONG_DEBUG
                 Debug.Log("Loading chart EasySingle");
 #endif
-                        easy_single.Load(stringData);
+                        GetChart(Instrument.Guitar, Difficulty.Easy).Load(stringData);
                         break;
                     case ("[EasyDoubleGuitar]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart EasyDoubleBass");
 #endif
-                        easy_double_guitar.Load(stringData);
+                        GetChart(Instrument.GuitarCoop, Difficulty.Easy).Load(stringData);
                         break;
                     case ("[EasyDoubleBass]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart EasyDoubleBass");
 #endif
-                        easy_double_bass.Load(stringData);
+                        GetChart(Instrument.Bass, Difficulty.Easy).Load(stringData);
                         break;
                     case ("[MediumSingle]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart MediumSingle");
 #endif
-                        medium_single.Load(stringData);
+                        GetChart(Instrument.Guitar, Difficulty.Medium).Load(stringData);
                         break;
                     case ("[MediumDoubleGuitar]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart EasyDoubleBass");
 #endif
-                        medium_double_guitar.Load(stringData);
+                        GetChart(Instrument.GuitarCoop, Difficulty.Medium).Load(stringData);
                         break;
                     case ("[MediumDoubleBass]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart MediumDoubleBass");
 #endif
-                        medium_double_bass.Load(stringData);
+                        GetChart(Instrument.Bass, Difficulty.Medium).Load(stringData);
                         break;
                     case ("[HardSingle]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart HardSingle");
 #endif
-                        hard_single.Load(stringData);
+                        GetChart(Instrument.Guitar, Difficulty.Hard).Load(stringData);
                         break;
                     case ("[HardDoubleGuitar]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart EasyDoubleBass");
 #endif
-                        hard_double_guitar.Load(stringData);
+                        GetChart(Instrument.GuitarCoop, Difficulty.Hard).Load(stringData);
                         break;
                     case ("[HardDoubleBass]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart HardDoubleBass");
 #endif
-                        hard_double_bass.Load(stringData);
+                        GetChart(Instrument.Bass, Difficulty.Hard).Load(stringData);
                         break;
                     case ("[ExpertSingle]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart ExpertSingle");
 #endif
-                        expert_single.Load(stringData);
+                        GetChart(Instrument.Guitar, Difficulty.Expert).Load(stringData);
                         break;
                     case ("[ExpertDoubleGuitar]"):
 #if SONG_DEBUG
-                Debug.Log("Loading chart EasyDoubleBass");
+                Debug.Log("Loading chart ExpertDoubleBass");
 #endif
-                        expert_double_guitar.Load(stringData);
+                        GetChart(Instrument.GuitarCoop, Difficulty.Expert).Load(stringData);
                         break;
                     case ("[ExpertDoubleBass]"):
 #if SONG_DEBUG
                 Debug.Log("Loading chart ExpertDoubleBass");
 #endif
-                        expert_double_bass.Load(stringData);
+                        GetChart(Instrument.Bass, Difficulty.Expert).Load(stringData);
                         break;
                     default:
                         return;
@@ -1125,48 +1132,50 @@ namespace Moonscraper
 
                     if (chartString != string.Empty)
                     {
+                        string seperator;
                         switch (i)
                         {
                             case (0):
-                                saveString += "[EasySingle]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[ExpertSingle]";
                                 break;
                             case (1):
-                                saveString += "[EasyDoubleBass]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[ExpertDoubleBass]";
                                 break;
                             case (2):
-                                saveString += "[EasyDoubleGuitar]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[ExpertDoubleGuitar]";
                                 break;
                             case (3):
-                                saveString += "[MediumSingle]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[HardSingle]";
                                 break;
                             case (4):
-                                saveString += "[MediumDoubleGuitar]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[HardDoubleGuitar]";
                                 break;
                             case (5):
-                                saveString += "[MediumDoubleBass]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[HardDoubleBass]";
                                 break;
                             case (6):
-                                saveString += "[HardSingle]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[MediumSingle]";
                                 break;
                             case (7):
-                                saveString += "[HardDoubleGuitar]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[MediumDoubleGuitar]";
                                 break;
                             case (8):
-                                saveString += "[HardDoubleBass]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[MediumDoubleBass]";
                                 break;
                             case (9):
-                                saveString += "[ExpertSingle]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[EasySingle]";
                                 break;
                             case (10):
-                                saveString += "[ExpertDoubleGuitar]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[EasyDoubleGuitar]";
                                 break;
                             case (11):
-                                saveString += "[ExpertDoubleBass]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
+                                seperator = "[EasyDoubleBass]";
                                 break;
                             default:
+                                seperator = "[ChartUnknown]";
                                 break;
                         }
-
+                        saveString += seperator + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
                         saveString += chartString;
                         saveString += "}" + Globals.LINE_ENDING;
                     }
@@ -1229,6 +1238,17 @@ namespace Moonscraper
 
                 return (float)time;
             }
+
+            public enum Difficulty
+            {
+                Expert = 0, Hard = 1, Medium = 2, Easy = 3
+            }
+
+            public enum Instrument
+            {
+                Guitar = 0, GuitarCoop = 1, Bass = 2
+            }
+
         }
         /*
         /// <summary>

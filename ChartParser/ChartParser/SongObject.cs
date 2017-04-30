@@ -564,9 +564,7 @@ namespace Moonscraper
                         return new T[0];
 
                     T[] rangedList = new T[maxArrayPos - minArrayPos + 1];
-
-                    for (int i = 0; i < rangedList.Length; ++i)
-                        rangedList[i] = list[minArrayPos + i];
+                    System.Array.Copy(list, minArrayPos, rangedList, 0, rangedList.Length);
 
                     return rangedList;
                 }
