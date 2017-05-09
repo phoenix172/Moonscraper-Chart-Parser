@@ -97,6 +97,7 @@ namespace Moonscraper
                 }
             }
 #endif
+                /*
             float _length = 300;
             public float length
             {
@@ -134,7 +135,7 @@ namespace Moonscraper
                     _manualLength = value;
                     _length = length;
                 }
-            }
+            }*/
 
             string[] audioLocations = new string[3];
 
@@ -571,12 +572,12 @@ namespace Moonscraper
             /// <param name="time">The time (in seconds) to convert.</param>
             /// <param name="resolution">Ticks per beat, usually provided from the resolution song of a Song class.</param>
             /// <returns>Returns the calculated tick position.</returns>
-            public uint TimeToChartPosition(float time, float resolution, bool capByLength = true)
+            public uint TimeToChartPosition(float time, float resolution/*, bool capByLength = true*/)
             {
                 if (time < 0)
                     time = 0;
-                else if (capByLength && time > length)
-                    time = length;
+                /*else if (capByLength && time > length)
+                    time = length;*/
 
                 uint position = 0;
 
@@ -959,11 +960,12 @@ namespace Moonscraper
                         }
 
                         // Length = 300
+                        /*
                         else if (lengthRegex.IsMatch(line))
                         {
                             manualLength = true;
                             length = float.Parse(Regex.Matches(line, FLOATSEARCH)[0].ToString());
-                        }
+                        }*/
 
                         // PreviewStart = 0.00
                         else if (previewStartRegex.IsMatch(line))
@@ -1058,8 +1060,8 @@ namespace Moonscraper
                 if (player2 != string.Empty)
                     saveString += Globals.TABSPACE + "Player2 = \"" + player2.ToLower() + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "Difficulty = " + difficulty + Globals.LINE_ENDING;
-                if (manualLength)
-                    saveString += Globals.TABSPACE + "Length = " + _length + Globals.LINE_ENDING;
+                //if (manualLength)
+                    //saveString += Globals.TABSPACE + "Length = " + _length + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "PreviewStart = " + previewStart + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "PreviewEnd = " + previewEnd + Globals.LINE_ENDING;
                 if (genre != string.Empty)
