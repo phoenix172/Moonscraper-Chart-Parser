@@ -310,9 +310,9 @@ namespace Moonscraper
                         }
 
                         uint endPos = 0;
-                        for (int j = i; j < track.Count; j++)
+                        for (int j = i; j < tapAndOpenEvents.Count; j++)
                         {
-                            var se2 = track[j] as SysexEvent;
+                            var se2 = tapAndOpenEvents[j] as SysexEvent;
                             if (se2 != null)
                             {
                                 var b2 = se2.GetData();
