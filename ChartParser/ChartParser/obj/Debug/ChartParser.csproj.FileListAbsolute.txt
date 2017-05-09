@@ -8,3 +8,4 @@ E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParse
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Debug\ChartParser.csprojResolveAssemblyReference.cache
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Debug\ChartParser.dll
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Debug\ChartParser.pdb
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\bin\Debug\NAudio.dll

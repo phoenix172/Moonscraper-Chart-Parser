@@ -63,7 +63,7 @@ namespace Moonscraper
 
             public enum Note_Type
             {
-                STRUM, HOPO, TAP
+                Natural, Strum, Hopo, Tap
             }
 
             public enum Special_Type
@@ -282,14 +282,14 @@ namespace Moonscraper
                 {
                     if (fret_type != Fret_Type.OPEN && (flags & Flags.TAP) == Flags.TAP)
                     {
-                        return Note_Type.TAP;
+                        return Note_Type.Tap;
                     }
                     else
                     {
                         if (IsHopo)
-                            return Note_Type.HOPO;
+                            return Note_Type.Hopo;
                         else
-                            return Note_Type.STRUM;
+                            return Note_Type.Strum;
                     }
                 }
             }
@@ -437,6 +437,49 @@ namespace Moonscraper
                 if (next != null && next.controller)
                     next.controller.UpdateSongObject();*/
             }
+
+            public void SetType(Note_Type type)
+            {
+                flags = Flags.NONE;
+                switch (type)
+                {
+                    case (Note_Type.Strum):
+                        if (IsChord)
+                            flags &= ~Note.Flags.FORCED;
+                        else
+                        {
+                            if (IsNaturalHopo)
+                                flags |= Note.Flags.FORCED;
+                            else
+                                flags &= ~Note.Flags.FORCED;
+                        }
+
+                        break;
+
+                    case (Note_Type.Hopo):
+                        if (!CannotBeForcedCheck)
+                        {
+                            if (IsChord)
+                                flags |= Note.Flags.FORCED;
+                            else
+                            {
+                                if (!IsNaturalHopo)
+                                    flags |= Note.Flags.FORCED;
+                                else
+                                    flags &= ~Note.Flags.FORCED;
+                            }
+                        }
+                        break;
+
+                    case (Note_Type.Tap):
+                        flags |= Note.Flags.TAP;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
             /*
             public void ActionHistory.Modify CapSustain(Note cap)
             {
