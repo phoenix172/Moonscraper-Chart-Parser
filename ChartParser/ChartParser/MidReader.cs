@@ -278,6 +278,10 @@ namespace Moonscraper
                             if (bytes2.Length == 8 && bytes2[5] == 255 && bytes2[7] == 0)
                             {
                                 endPos = (uint)(se2.AbsoluteTime - tick);
+
+                                if (endPos > 0)
+                                    --endPos;
+
                                 break;
                             }
 
@@ -319,6 +323,10 @@ namespace Moonscraper
                                 if (b2.Length == 8 && b2[5] == bytes[5] && b2[7] == 0)
                                 {
                                     endPos = (uint)(se2.AbsoluteTime - tick);
+
+                                    if (endPos > 0)
+                                        --endPos;
+
                                     break;
                                 }
                             }
