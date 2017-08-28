@@ -9,22 +9,25 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System;
-#if BASS_AUDIO
-using Un4seen.Bass;
-#endif
 
 namespace Moonscraper
 {
     namespace ChartParser
     {
+        using IO;
         public class Song
         {
             static int NUM_OF_DIFFICULTIES;
             public static bool streamAudio = true;
 
-            const int MUSIC_STREAM_ARRAY_POS = 0;
-            const int GUITAR_STREAM_ARRAY_POS = 1;
-            const int RHYTHM_STREAM_ARRAY_POS = 2;
+            public const int MUSIC_STREAM_ARRAY_POS = 0;
+            public const int GUITAR_STREAM_ARRAY_POS = 1;
+            public const int RHYTHM_STREAM_ARRAY_POS = 2;
+            public const int DRUM_STREAM_ARRAY_POS = 3;
+
+            const int TEXT_POS_TICK = 0;
+            const int TEXT_POS_EVENT_TYPE = 2;
+            const int TEXT_POS_DATA_1 = 3;
 
             // Song properties
             public string name = string.Empty, artist = string.Empty, charter = string.Empty;
@@ -33,71 +36,106 @@ namespace Moonscraper
             public float offset = 0, previewStart = 0, previewEnd = 0, resolution = 192;
             public string genre = "rock", mediatype = "cd";
             public string year = string.Empty;
-
-/*  Waveform only
-            SampleData[] audioSampleData = new SampleData[3];
+            /*
+            SampleData[] audioSampleData = new SampleData[4];
             public SampleData musicSample { get { return audioSampleData[MUSIC_STREAM_ARRAY_POS]; } private set { audioSampleData[MUSIC_STREAM_ARRAY_POS] = value; } }
             public SampleData guitarSample { get { return audioSampleData[GUITAR_STREAM_ARRAY_POS]; } private set { audioSampleData[GUITAR_STREAM_ARRAY_POS] = value; } }
-            public SampleData rhythmSample { get { return audioSampleData[RHYTHM_STREAM_ARRAY_POS]; } private set { audioSampleData[RHYTHM_STREAM_ARRAY_POS] = value; } }*/
+            public SampleData rhythmSample { get { return audioSampleData[RHYTHM_STREAM_ARRAY_POS]; } private set { audioSampleData[RHYTHM_STREAM_ARRAY_POS] = value; } }
+            public SampleData drumSample { get { return audioSampleData[DRUM_STREAM_ARRAY_POS]; } private set { audioSampleData[DRUM_STREAM_ARRAY_POS] = value; } }*/
 
 #if BASS_AUDIO
-            int[] bassAudioStreams = new int[3];
-            public int bassMusicStream
+    public int[] bassAudioStreams = new int[4];
+    public int bassMusicStream
+    {
+        get
+        {
+            return bassAudioStreams[MUSIC_STREAM_ARRAY_POS];
+        }
+        set
+        {
+            if (bassAudioStreams[MUSIC_STREAM_ARRAY_POS] != 0)
             {
-                get
-                {
-                    return bassAudioStreams[MUSIC_STREAM_ARRAY_POS];
-                }
-                set
-                {
-                    if (bassAudioStreams[MUSIC_STREAM_ARRAY_POS] != 0)
-                    {
-                        if (Bass.BASS_StreamFree(bassAudioStreams[MUSIC_STREAM_ARRAY_POS]))
-                            Debug.Log("Song audio stream successfully freed");
-                        else
-                            Debug.LogError("Error while attempting to free song audio stream");
-                    }
-
-                    bassAudioStreams[MUSIC_STREAM_ARRAY_POS] = value;
-                }
+                if (Bass.BASS_StreamFree(bassAudioStreams[MUSIC_STREAM_ARRAY_POS]))
+                    Debug.Log("Song audio stream successfully freed");
+                else
+                    Debug.LogError("Error while attempting to free song audio stream");
             }
-            public int bassGuitarStream
+
+            bassAudioStreams[MUSIC_STREAM_ARRAY_POS] = value;
+        }
+    }
+    public int bassGuitarStream
+    {
+        get { return bassAudioStreams[GUITAR_STREAM_ARRAY_POS]; }
+        set
+        {
+            if (bassAudioStreams[GUITAR_STREAM_ARRAY_POS] != 0)
             {
-                get { return bassAudioStreams[GUITAR_STREAM_ARRAY_POS]; }
-                set
-                {
-                    if (bassAudioStreams[GUITAR_STREAM_ARRAY_POS] != 0)
-                    {
-                        if (Bass.BASS_StreamFree(bassAudioStreams[GUITAR_STREAM_ARRAY_POS]))
-                            Debug.Log("Guitar audio stream successfully freed");
-                        else
-                            Debug.LogError("Error while attempting to free guitar audio stream");
-                    }
-
-                    bassAudioStreams[GUITAR_STREAM_ARRAY_POS] = value;
-                }
+                if (Bass.BASS_StreamFree(bassAudioStreams[GUITAR_STREAM_ARRAY_POS]))
+                    Debug.Log("Guitar audio stream successfully freed");
+                else
+                    Debug.LogError("Error while attempting to free guitar audio stream");
             }
-            public int bassRhythmStream
+
+            bassAudioStreams[GUITAR_STREAM_ARRAY_POS] = value;
+        }
+    }
+    public int bassRhythmStream
+    {
+        get
+        {
+            return bassAudioStreams[RHYTHM_STREAM_ARRAY_POS];
+        }
+        set
+        {
+            if (bassAudioStreams[RHYTHM_STREAM_ARRAY_POS] != 0)
             {
-                get
-                {
-                    return bassAudioStreams[RHYTHM_STREAM_ARRAY_POS];
-                }
-                set
-                {
-                    if (bassAudioStreams[RHYTHM_STREAM_ARRAY_POS] != 0)
-                    {
-                        if (Bass.BASS_StreamFree(bassAudioStreams[RHYTHM_STREAM_ARRAY_POS]))
-                            Debug.Log("Rhythm audio stream successfully freed");
-                        else
-                            Debug.LogError("Error while attempting to free rhythm audio stream");
-                    }
-
-                    bassAudioStreams[RHYTHM_STREAM_ARRAY_POS] = value;
-                }
+                if (Bass.BASS_StreamFree(bassAudioStreams[RHYTHM_STREAM_ARRAY_POS]))
+                    Debug.Log("Rhythm audio stream successfully freed");
+                else
+                    Debug.LogError("Error while attempting to free rhythm audio stream");
             }
+
+            bassAudioStreams[RHYTHM_STREAM_ARRAY_POS] = value;
+        }
+    }
+    public int bassDrumStream
+    {
+        get
+        {
+            return bassAudioStreams[DRUM_STREAM_ARRAY_POS];
+        }
+        set
+        {
+            if (bassAudioStreams[DRUM_STREAM_ARRAY_POS] != 0)
+            {
+                if (Bass.BASS_StreamFree(bassAudioStreams[DRUM_STREAM_ARRAY_POS]))
+                    Debug.Log("Drum audio stream successfully freed");
+                else
+                    Debug.LogError("Error while attempting to free rhythm audio stream");
+            }
+
+            bassAudioStreams[DRUM_STREAM_ARRAY_POS] = value;
+        }
+    }
 #endif
-                /*
+            
+            public ExportOptions defaultExportOptions
+            {
+                get
+                {
+                    ExportOptions exportOptions = default(ExportOptions);
+
+                    exportOptions.forced = true;
+                    exportOptions.copyDownEmptyDifficulty = false;
+                    exportOptions.format = ExportOptions.Format.Chart;
+                    exportOptions.targetResolution = this.resolution;
+                    exportOptions.tickOffset = 0;
+
+                    return exportOptions;
+                }
+            }
+                        
             float _length = 300;
             public float length
             {
@@ -108,11 +146,13 @@ namespace Moonscraper
                     else
                     {
 #if BASS_AUDIO
-                        if (bassMusicStream != 0)
-                            return (float)Bass.BASS_ChannelBytes2Seconds(bassMusicStream, Bass.BASS_ChannelGetLength(bassMusicStream, BASSMode.BASS_POS_BYTES)) + offset;
-
-                        else
+                if (bassMusicStream != 0)
+                    return (float)Bass.BASS_ChannelBytes2Seconds(bassMusicStream, Bass.BASS_ChannelGetLength(bassMusicStream, BASSMode.BASS_POS_BYTES)) + offset;
+#else
+                        //if (musicStream)
+                           // return musicStream.length + offset;
 #endif
+                        //else
                         return 300;     // 5 minutes
                     }
                 }
@@ -135,9 +175,9 @@ namespace Moonscraper
                     _manualLength = value;
                     _length = length;
                 }
-            }*/
+            }
 
-            string[] audioLocations = new string[3];
+            public string[] audioLocations = new string[4];
 
             public string musicSongName
             {
@@ -166,12 +206,23 @@ namespace Moonscraper
                         audioLocations[RHYTHM_STREAM_ARRAY_POS] = Path.GetFullPath(value);
                 }
             }
-#if BASS_AUDIO
+
+            public string drumSongName
+            {
+                get { return Path.GetFileName(audioLocations[DRUM_STREAM_ARRAY_POS]); }
+                set
+                {
+                    if (File.Exists(value))
+                        audioLocations[DRUM_STREAM_ARRAY_POS] = Path.GetFullPath(value);
+                }
+            }
+            
             public bool songAudioLoaded
             {
                 get
                 {
-                    return bassMusicStream != 0;
+                    return (musicSongName != string.Empty);
+                    //return musicStream ? true : false;
                 }
             }
 
@@ -179,7 +230,8 @@ namespace Moonscraper
             {
                 get
                 {
-                    return bassGuitarStream != 0;
+                    return (guitarSongName != string.Empty);
+                    //return guitarStream ? true : false;
                 }
             }
 
@@ -187,13 +239,22 @@ namespace Moonscraper
             {
                 get
                 {
-                    return bassRhythmStream != 0;
+                    return (rhythmSongName != string.Empty);
+                    //return rhythmStream ? true : false;
                 }
             }
-#endif
 
+            public bool drumAudioLoaded
+            {
+                get
+                {
+                    return (drumSongName != string.Empty);
+                    //return bassDrumStream != 0;
+                }
+            }
+            
             // Charts
-            Chart[] charts;// = new Chart[12];
+            Chart[] charts;
 
             List<Event> _events;
             List<SyncTrack> _syncTrack;
@@ -208,6 +269,8 @@ namespace Moonscraper
             public Section[] sections { get; private set; }
 
             public SyncTrack[] syncTrack { get { return _syncTrack.ToArray(); } }
+            public Event[] eventsAndSections { get { return _events.ToArray(); } }
+
             /// <summary>
             /// Read only list of a song's bpm changes.
             /// </summary>
@@ -293,6 +356,12 @@ namespace Moonscraper
                         case (Instrument.Bass):
                             instrumentName += "Bass - ";
                             break;
+                        case (Instrument.Keys):
+                            instrumentName += "Keys - ";
+                            break;
+                        case (Instrument.Drums):
+                            instrumentName += "Drums - ";
+                            break;
                         default:
                             continue;
                     }
@@ -305,35 +374,35 @@ namespace Moonscraper
 
                 for (int i = 0; i < audioLocations.Length; ++i)
                     audioLocations[i] = string.Empty;
-                /* Waveform only
-                for (int i = 0; i < audioSampleData.Length; ++i)
-                    audioSampleData[i] = new SampleData(string.Empty);*/
+
+                //for (int i = 0; i < audioSampleData.Length; ++i)
+                //audioSampleData[i] = new SampleData(string.Empty);
 
                 updateArrays();
             }
 
 #if BASS_AUDIO
-            ~Song()
-            {
-                FreeBassAudioStreams();
-            }
+    ~Song()
+    {
+        FreeBassAudioStreams();
+    }
 
-            public void FreeBassAudioStreams()
+    public void FreeBassAudioStreams()
+    {
+        for (int i = 0; i < bassAudioStreams.Length; ++i)
+        {
+            if (bassAudioStreams[i] != 0)
             {
-                for (int i = 0; i < bassAudioStreams.Length; ++i)
-                {
-                    if (bassAudioStreams[i] != 0)
-                    {
-                        if (!Bass.BASS_StreamFree(bassAudioStreams[i]))
-                            Debug.LogError("Error while freeing audio stream " + bassAudioStreams[i]);
-                        else
-                            bassAudioStreams[i] = 0;
-                    }
-                }
-
-                foreach (SampleData sample in audioSampleData)
-                    sample.Free();
+                if (!Bass.BASS_StreamFree(bassAudioStreams[i]))
+                    Debug.LogError("Error while freeing audio stream " + bassAudioStreams[i]);
+                else
+                    bassAudioStreams[i] = 0;
             }
+        }
+
+        foreach (SampleData sample in audioSampleData)
+            sample.Free();
+    }
 #endif
             void LoadChartFile(string filepath)
             {
@@ -403,22 +472,23 @@ namespace Moonscraper
             /// <param name="filepath">The path to the .chart file you want to load.</param>
             public Song(string filepath) : this()
             {
+
                 try
                 {
                     if (!File.Exists(filepath))
-                        throw new System.Exception("File does not exist");
+                        throw new Exception("File does not exist");
 
                     if (Path.GetExtension(filepath) == ".chart")
                         LoadChartFile(filepath);
                     else
                     {
-                        throw new System.Exception("Bad file type");
+                        throw new Exception("Bad file type");
                     }
 
                 }
                 catch
                 {
-                    throw new System.Exception("Could not open file");
+                    throw new Exception("Could not open file");
                 }
             }
 
@@ -430,141 +500,145 @@ namespace Moonscraper
                 }
                 catch (Exception e)
                 {
+                    Console.WriteLine("Error: " + e.Message);
                     //Debug.LogError(e.Message);
-                    Console.WriteLine(e.Message);
                     return charts[0];
                 }
             }
             /*
-            /// <summary>
-            /// Unity context only. Loads the audio provided from the .chart file into AudioClips for song, guitar and rhythm tracks.
-            /// </summary>
-            public void LoadAllAudioClips()
-            {
-#if TIMING_DEBUG
-        float time = Time.realtimeSinceStartup;
-#endif
-                LoadMusicStream(audioLocations[MUSIC_STREAM_ARRAY_POS]);
-                LoadGuitarStream(audioLocations[GUITAR_STREAM_ARRAY_POS]);
-                LoadRhythmStream(audioLocations[RHYTHM_STREAM_ARRAY_POS]);
-#if TIMING_DEBUG
-        Debug.Log("Total audio files load time: " + (Time.realtimeSinceStartup - time));
-#endif
-            }
-            
-            public void LoadMusicStream(string filepath)
-            {
-                GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
-                MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
+                        public void LoadAllAudioClips()
+                        {
+            #if TIMING_DEBUG
+                    float time = Time.realtimeSinceStartup;
+            #endif
+                            LoadMusicStream(audioLocations[MUSIC_STREAM_ARRAY_POS]);
+                            LoadGuitarStream(audioLocations[GUITAR_STREAM_ARRAY_POS]);
+                            LoadRhythmStream(audioLocations[RHYTHM_STREAM_ARRAY_POS]);
+                            LoadDrumStream(audioLocations[DRUM_STREAM_ARRAY_POS]);
+            #if TIMING_DEBUG
+                    Debug.Log("Total audio files load time: " + (Time.realtimeSinceStartup - time));
+            #endif
+                        }
 
-                coroutine.StartCoroutine(LoadAudio(filepath, MUSIC_STREAM_ARRAY_POS, loadAudioObject));
-            }
+                        public void LoadMusicStream(string filepath)
+                        {
+                            GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
+                            MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
 
-            public void LoadGuitarStream(string filepath)
-            {
-                GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
-                MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
+                            coroutine.StartCoroutine(LoadAudio(filepath, MUSIC_STREAM_ARRAY_POS, loadAudioObject));
+                        }
 
-                coroutine.StartCoroutine(LoadAudio(filepath, GUITAR_STREAM_ARRAY_POS, loadAudioObject));
-            }
+                        public void LoadGuitarStream(string filepath)
+                        {
+                            GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
+                            MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
 
-            public void LoadRhythmStream(string filepath)
-            {
-                GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
-                MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
+                            coroutine.StartCoroutine(LoadAudio(filepath, GUITAR_STREAM_ARRAY_POS, loadAudioObject));
+                        }
 
-                coroutine.StartCoroutine(LoadAudio(filepath, RHYTHM_STREAM_ARRAY_POS, loadAudioObject));
-            }
+                        public void LoadRhythmStream(string filepath)
+                        {
+                            GameObject loadAudioObject = new GameObject("Load Rhythm Audio");
+                            MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
 
-            IEnumerator LoadAudio(string filepath, int audioStreamArrayPos, GameObject coroutine)
-            {
-                //string temp_wav_filepath = Application.persistentDataPath + "\\" + TEMP_MP3_TO_WAV_FILEPATH;
-                string convertedFromMp3 = string.Empty;
-#if !BASS_AUDIO
-        if (audioStreams[audioStreamArrayPos])
-        {
-            audioStreams[audioStreamArrayPos].UnloadAudioData();
-            GameObject.Destroy(audioStreams[audioStreamArrayPos]);
-        }
-#endif
+                            coroutine.StartCoroutine(LoadAudio(filepath, RHYTHM_STREAM_ARRAY_POS, loadAudioObject));
+                        }
 
-                if (filepath != string.Empty && File.Exists(filepath))
-                {
-#if TIMING_DEBUG
-            float time = Time.realtimeSinceStartup;
-#endif
-                    // Check for valid extension
-                    if (!Utility.validateExtension(filepath, Globals.validAudioExtensions))
-                    {
-                        throw new System.Exception("Invalid file extension");
-                    }
+                        public void LoadDrumStream(string filepath)
+                        {
+                            GameObject loadAudioObject = new GameObject("Load Drum Audio");
+                            MonoWrapper coroutine = loadAudioObject.AddComponent<MonoWrapper>();
 
-                    filepath = filepath.Replace('\\', '/');
+                            coroutine.StartCoroutine(LoadAudio(filepath, DRUM_STREAM_ARRAY_POS, loadAudioObject));
+                        }
 
-                    // Record the filepath
-                    audioLocations[audioStreamArrayPos] = Path.GetFullPath(filepath);
-                    ++audioLoads;
-#if BASS_AUDIO
+                        IEnumerator LoadAudio(string filepath, int audioStreamArrayPos, GameObject coroutine)
+                        {
+            #if !BASS_AUDIO
+                            if (audioStreams[audioStreamArrayPos])
+                            {
+                                audioStreams[audioStreamArrayPos].UnloadAudioData();
+                                GameObject.Destroy(audioStreams[audioStreamArrayPos]);
+                            }
+            #endif
 
-                    System.Threading.Thread streamCreateFileThread = new System.Threading.Thread(() =>
-                    {
-                        // Load Bass Audio Streams   
-                        audioSampleData[audioStreamArrayPos].Free();
-                        audioSampleData[audioStreamArrayPos] = new SampleData(filepath);
-                        audioSampleData[audioStreamArrayPos].ReadAudioFile();
+                            if (filepath != string.Empty && File.Exists(filepath))
+                            {
+            #if TIMING_DEBUG
+                        float time = Time.realtimeSinceStartup;
+            #endif
+                                // Check for valid extension
+                                if (!Utility.validateExtension(filepath, Globals.validAudioExtensions))
+                                {
+                                    throw new System.Exception("Invalid file extension");
+                                }
 
-                        bassAudioStreams[audioStreamArrayPos] = Bass.BASS_StreamCreateFile(filepath, 0, 0, BASSFlag.BASS_STREAM_DECODE);
-                        bassAudioStreams[audioStreamArrayPos] = Un4seen.Bass.AddOn.Fx.BassFx.BASS_FX_TempoCreate(bassAudioStreams[audioStreamArrayPos], BASSFlag.BASS_FX_FREESOURCE);
-                    });
+                                filepath = filepath.Replace('\\', '/');
 
-                    streamCreateFileThread.Start();
+                                // Record the filepath
+                                audioLocations[audioStreamArrayPos] = Path.GetFullPath(filepath);
+                                ++audioLoads;
+            #if BASS_AUDIO
 
-                    while (streamCreateFileThread.ThreadState == System.Threading.ThreadState.Running)
-                        yield return null;
+                        System.Threading.Thread streamCreateFileThread = new System.Threading.Thread(() =>
+                        {
+                            // Load Bass Audio Streams   
+                            audioSampleData[audioStreamArrayPos].Free();
+                            audioSampleData[audioStreamArrayPos] = new SampleData(filepath);
+                            audioSampleData[audioStreamArrayPos].ReadAudioFile();
 
-                    --audioLoads;
-#endif
-#if TIMING_DEBUG
-            Debug.Log("Audio load time: " + (Time.realtimeSinceStartup - time));
-#endif
-                    Debug.Log("Finished loading audio");
-                }
-                else
-                {
-                    if (filepath != string.Empty)
-                        Debug.LogError("Unable to locate audio file");
-                }
+                            bassAudioStreams[audioStreamArrayPos] = Bass.BASS_StreamCreateFile(filepath, 0, 0, BASSFlag.BASS_STREAM_DECODE | BASSFlag.BASS_ASYNCFILE | BASSFlag.BASS_STREAM_PRESCAN);
+                            bassAudioStreams[audioStreamArrayPos] = Un4seen.Bass.AddOn.Fx.BassFx.BASS_FX_TempoCreate(bassAudioStreams[audioStreamArrayPos], BASSFlag.BASS_FX_FREESOURCE);
+                        });
 
-                GameObject.Destroy(coroutine);
-            }*/
+                        streamCreateFileThread.Start();
 
-            /*
-            public uint WorldPositionToSnappedChartPosition(float worldYPos, int step)
-            {
-                uint chartPos = WorldYPositionToChartPosition(worldYPos);
+                        while (streamCreateFileThread.ThreadState == System.Threading.ThreadState.Running)
+                            yield return null;
 
-                return Snapable.ChartPositionToSnappedChartPosition(chartPos, step, resolution);
-            }
+                        --audioLoads;
+            #endif
+            #if TIMING_DEBUG
+                        Debug.Log("Audio load time: " + (Time.realtimeSinceStartup - time));
+            #endif
+                                //Debug.Log("Finished loading audio");
+                            }
+                            else
+                            {
+                                if (filepath != string.Empty)
+                                    //Debug.LogError("Unable to locate audio file");
+                                    Console.WriteLine("Unable to locate audio file");
+                            }
 
-            public float ChartPositionToWorldYPosition(uint position)
-            {
-                return TimeToWorldYPosition(ChartPositionToTime(position, resolution));
-            }
+                            //GameObject.Destroy(coroutine);
+                        }
 
-            public float ChartPositionToWorldYPosition(uint position, float resolution)
-            {
-                return TimeToWorldYPosition(ChartPositionToTime(position, resolution));
-            }
+                        public uint WorldPositionToSnappedChartPosition(float worldYPos, int step)
+                        {
+                            uint chartPos = WorldYPositionToChartPosition(worldYPos);
 
-            public uint WorldYPositionToChartPosition(float worldYPos)
-            {
-                return TimeToChartPosition(WorldYPositionToTime(worldYPos), resolution);
-            }
+                            return Snapable.ChartPositionToSnappedChartPosition(chartPos, step, resolution);
+                        }
 
-            public uint WorldYPositionToChartPosition(float worldYPos, float resolution)
-            {
-                return TimeToChartPosition(WorldYPositionToTime(worldYPos), resolution);
-            }*/
+                        public float ChartPositionToWorldYPosition(uint position)
+                        {
+                            return TimeToWorldYPosition(ChartPositionToTime(position, resolution));
+                        }
+
+                        public float ChartPositionToWorldYPosition(uint position, float resolution)
+                        {
+                            return TimeToWorldYPosition(ChartPositionToTime(position, resolution));
+                        }
+
+                        public uint WorldYPositionToChartPosition(float worldYPos)
+                        {
+                            return TimeToChartPosition(WorldYPositionToTime(worldYPos), resolution);
+                        }
+
+                        public uint WorldYPositionToChartPosition(float worldYPos, float resolution)
+                        {
+                            return TimeToChartPosition(WorldYPositionToTime(worldYPos), resolution);
+                        }*/
 
             /// <summary>
             /// Converts a time value into a tick position value. May be inaccurate due to interger rounding.
@@ -572,12 +646,12 @@ namespace Moonscraper
             /// <param name="time">The time (in seconds) to convert.</param>
             /// <param name="resolution">Ticks per beat, usually provided from the resolution song of a Song class.</param>
             /// <returns>Returns the calculated tick position.</returns>
-            public uint TimeToChartPosition(float time, float resolution/*, bool capByLength = true*/)
+            public uint TimeToChartPosition(float time, float resolution, bool capByLength = true)
             {
                 if (time < 0)
                     time = 0;
-                /*else if (capByLength && time > length)
-                    time = length;*/
+                else if (capByLength && time > length)
+                    time = length;
 
                 uint position = 0;
 
@@ -603,19 +677,19 @@ namespace Moonscraper
             /// </summary>
             /// <param name="position">The tick position</param>
             /// <returns>Returns the value of the bpm that was found.</returns>
-            public uint GetPrevBPM(uint position)
+            public BPM GetPrevBPM(uint position)
             {
                 int closestPos = SongObject.FindClosestPosition(position, bpms);
                 if (closestPos != SongObject.NOTFOUND)
                 {
                     // Select the smaller of the two
                     if (bpms[closestPos].position <= position)
-                        return bpms[closestPos].position;
+                        return bpms[closestPos];
                     else if (closestPos > 0)
-                        return bpms[closestPos - 1].position;
+                        return bpms[closestPos - 1];
                 }
 
-                return bpms[0].value;
+                return bpms[0];
             }
 
             /// <summary>
@@ -623,19 +697,19 @@ namespace Moonscraper
             /// </summary>
             /// <param name="position">The tick position</param>
             /// <returns>Returns the value of the time signature that was found.</returns>
-            public uint GetPrevTS(uint position)
+            public TimeSignature GetPrevTS(uint position)
             {
                 int closestPos = SongObject.FindClosestPosition(position, timeSignatures);
                 if (closestPos != SongObject.NOTFOUND)
                 {
                     // Select the smaller of the two
                     if (timeSignatures[closestPos].position <= position)
-                        return timeSignatures[closestPos].position;
+                        return timeSignatures[closestPos];
                     else if (closestPos > 0)
-                        return timeSignatures[closestPos - 1].position;
+                        return timeSignatures[closestPos - 1];
                 }
 
-                return timeSignatures[0].numerator;
+                return timeSignatures[0];
             }
             /*
             public static float WorldYPositionToTime(float worldYPosition)
@@ -793,87 +867,64 @@ namespace Moonscraper
 #if SONG_DEBUG
                 Debug.Log("Loading sync data");
 #endif
-                        submitDataSyncTrack(stringData);
-                        break;
+                    //submitDataGlobals(stringData);
+                    //break;
                     case ("[Events]"):
 #if SONG_DEBUG
                 Debug.Log("Loading events data");
 #endif
-                        submitDataEvents(stringData);
-                        break;
-                    case ("[EasySingle]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart EasySingle");
-#endif
-                        GetChart(Instrument.Guitar, Difficulty.Easy).Load(stringData);
-                        break;
-                    case ("[EasyDoubleGuitar]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart EasyDoubleBass");
-#endif
-                        GetChart(Instrument.GuitarCoop, Difficulty.Easy).Load(stringData);
-                        break;
-                    case ("[EasyDoubleBass]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart EasyDoubleBass");
-#endif
-                        GetChart(Instrument.Bass, Difficulty.Easy).Load(stringData);
-                        break;
-                    case ("[MediumSingle]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart MediumSingle");
-#endif
-                        GetChart(Instrument.Guitar, Difficulty.Medium).Load(stringData);
-                        break;
-                    case ("[MediumDoubleGuitar]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart EasyDoubleBass");
-#endif
-                        GetChart(Instrument.GuitarCoop, Difficulty.Medium).Load(stringData);
-                        break;
-                    case ("[MediumDoubleBass]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart MediumDoubleBass");
-#endif
-                        GetChart(Instrument.Bass, Difficulty.Medium).Load(stringData);
-                        break;
-                    case ("[HardSingle]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart HardSingle");
-#endif
-                        GetChart(Instrument.Guitar, Difficulty.Hard).Load(stringData);
-                        break;
-                    case ("[HardDoubleGuitar]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart EasyDoubleBass");
-#endif
-                        GetChart(Instrument.GuitarCoop, Difficulty.Hard).Load(stringData);
-                        break;
-                    case ("[HardDoubleBass]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart HardDoubleBass");
-#endif
-                        GetChart(Instrument.Bass, Difficulty.Hard).Load(stringData);
-                        break;
-                    case ("[ExpertSingle]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart ExpertSingle");
-#endif
-                        GetChart(Instrument.Guitar, Difficulty.Expert).Load(stringData);
-                        break;
-                    case ("[ExpertDoubleGuitar]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart ExpertDoubleBass");
-#endif
-                        GetChart(Instrument.GuitarCoop, Difficulty.Expert).Load(stringData);
-                        break;
-                    case ("[ExpertDoubleBass]"):
-#if SONG_DEBUG
-                Debug.Log("Loading chart ExpertDoubleBass");
-#endif
-                        GetChart(Instrument.Bass, Difficulty.Expert).Load(stringData);
+                        //submitDataEvents(stringData);
+                        submitDataGlobals(stringData);
                         break;
                     default:
+                        Difficulty chartDiff;
+                        int instumentStringOffset = 1;
+                        const string EASY = "Easy", MEDIUM = "Medium", HARD = "Hard", EXPERT = "Expert";
+
+                        // Determine what difficulty
+                        if (dataName.Substring(1, EASY.Length) == EASY)
+                        {
+                            chartDiff = Difficulty.Easy;
+                            instumentStringOffset += EASY.Length;
+                        }
+                        else if (dataName.Substring(1, MEDIUM.Length) == MEDIUM)
+                        {
+                            chartDiff = Difficulty.Medium;
+                            instumentStringOffset += MEDIUM.Length;
+                        }
+                        else if (dataName.Substring(1, HARD.Length) == HARD)
+                        {
+                            chartDiff = Difficulty.Hard;
+                            instumentStringOffset += HARD.Length;
+                        }
+                        else if (dataName.Substring(1, EXPERT.Length) == EXPERT)
+                        {
+                            chartDiff = Difficulty.Expert;
+                            instumentStringOffset += EXPERT.Length;
+                        }
+                        else
+                            return;
+
+                        switch (dataName.Substring(instumentStringOffset, dataName.Length - instumentStringOffset - 1))
+                        {
+                            case ("Single"):
+                                GetChart(Instrument.Guitar, chartDiff).Load(stringData);
+                                break;
+                            case ("DoubleGuitar"):
+                                GetChart(Instrument.GuitarCoop, chartDiff).Load(stringData);
+                                break;
+                            case ("DoubleBass"):
+                                GetChart(Instrument.Bass, chartDiff).Load(stringData);
+                                break;
+                            case ("Drums"):
+                                GetChart(Instrument.Drums, chartDiff).Load(stringData, Instrument.Drums);
+                                break;
+                            case ("Keyboard"):
+                                GetChart(Instrument.Keys, chartDiff).Load(stringData);
+                                break;
+                            default:
+                                return;
+                        }
                         return;
                 }
             }
@@ -903,6 +954,7 @@ namespace Moonscraper
                 Regex musicStreamRegex = new Regex(@"MusicStream = " + QUOTEVALIDATE);
                 Regex guitarStreamRegex = new Regex(@"GuitarStream = " + QUOTEVALIDATE);
                 Regex rhythmStreamRegex = new Regex(@"RhythmStream = " + QUOTEVALIDATE);
+                Regex drumStreamRegex = new Regex(@"DrumStream = " + QUOTEVALIDATE);
 
                 try
                 {
@@ -960,12 +1012,11 @@ namespace Moonscraper
                         }
 
                         // Length = 300
-                        /*
                         else if (lengthRegex.IsMatch(line))
                         {
                             manualLength = true;
                             length = float.Parse(Regex.Matches(line, FLOATSEARCH)[0].ToString());
-                        }*/
+                        }
 
                         // PreviewStart = 0.00
                         else if (previewStartRegex.IsMatch(line))
@@ -997,36 +1048,19 @@ namespace Moonscraper
                         // MusicStream = "ENDLESS REBIRTH.ogg"
                         else if (musicStreamRegex.IsMatch(line))
                         {
-                            string audioFilepath = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
-
-                            // Check if it's already the full path. If not, make it relative to the chart file.
-                            if (!File.Exists(audioFilepath))
-                                audioFilepath = audioDirectory + "\\" + audioFilepath;
-
-                            if (File.Exists(audioFilepath) && Globals.validateExtension(audioFilepath, Globals.validAudioExtensions))
-                                audioLocations[MUSIC_STREAM_ARRAY_POS] = Path.GetFullPath(audioFilepath);
+                            AudioLoadFromChart(MUSIC_STREAM_ARRAY_POS, line, audioDirectory);
                         }
                         else if (guitarStreamRegex.IsMatch(line))
                         {
-                            string audioFilepath = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
-
-                            // Check if it's already the full path. If not, make it relative to the chart file.
-                            if (!File.Exists(audioFilepath))
-                                audioFilepath = audioDirectory + "\\" + audioFilepath;
-
-                            if (File.Exists(audioFilepath) && Globals.validateExtension(audioFilepath, Globals.validAudioExtensions))
-                                audioLocations[GUITAR_STREAM_ARRAY_POS] = Path.GetFullPath(audioFilepath);
+                            AudioLoadFromChart(GUITAR_STREAM_ARRAY_POS, line, audioDirectory);
                         }
                         else if (rhythmStreamRegex.IsMatch(line))
                         {
-                            string audioFilepath = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
-
-                            // Check if it's already the full path. If not, make it relative to the chart file.
-                            if (!File.Exists(audioFilepath))
-                                audioFilepath = audioDirectory + "\\" + audioFilepath;
-
-                            if (File.Exists(audioFilepath) && Globals.validateExtension(audioFilepath, Globals.validAudioExtensions))
-                                audioLocations[RHYTHM_STREAM_ARRAY_POS] = Path.GetFullPath(audioFilepath);
+                            AudioLoadFromChart(RHYTHM_STREAM_ARRAY_POS, line, audioDirectory);
+                        }
+                        else if (drumStreamRegex.IsMatch(line))
+                        {
+                            AudioLoadFromChart(DRUM_STREAM_ARRAY_POS, line, audioDirectory);
                         }
                     }
 
@@ -1036,10 +1070,22 @@ namespace Moonscraper
                 }
                 catch (System.Exception e)
                 {
+                    Console.WriteLine("Error: " + e.Message);
                     //Debug.LogError(e.Message);
-                    Console.WriteLine(e.Message);
                 }
 
+            }
+
+            void AudioLoadFromChart(int streamArrayPos, string line, string audioDirectory)
+            {
+                string audioFilepath = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
+
+                // Check if it's already the full path. If not, make it relative to the chart file.
+                if (!File.Exists(audioFilepath))
+                    audioFilepath = audioDirectory + "\\" + audioFilepath;
+
+                if (File.Exists(audioFilepath) && Globals.validateExtension(audioFilepath, Globals.validAudioExtensions))
+                    audioLocations[streamArrayPos] = Path.GetFullPath(audioFilepath);
             }
 
             string GetPropertiesStringWithoutAudio()
@@ -1058,10 +1104,10 @@ namespace Moonscraper
                 saveString += Globals.TABSPACE + "Offset = " + offset + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "Resolution = " + resolution + Globals.LINE_ENDING;
                 if (player2 != string.Empty)
-                    saveString += Globals.TABSPACE + "Player2 = \"" + player2.ToLower() + Globals.LINE_ENDING;
+                    saveString += Globals.TABSPACE + "Player2 = " + player2.ToLower() + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "Difficulty = " + difficulty + Globals.LINE_ENDING;
-                //if (manualLength)
-                    //saveString += Globals.TABSPACE + "Length = " + _length + Globals.LINE_ENDING;
+                if (manualLength)
+                    saveString += Globals.TABSPACE + "Length = " + _length + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "PreviewStart = " + previewStart + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "PreviewEnd = " + previewEnd + Globals.LINE_ENDING;
                 if (genre != string.Empty)
@@ -1072,59 +1118,67 @@ namespace Moonscraper
                 return saveString;
             }
 
-            void submitDataSyncTrack(List<string> stringData)
+            void submitDataGlobals(List<string> stringData)
             {
 #if TIMING_DEBUG
         float time = Time.realtimeSinceStartup;
 #endif
                 foreach (string line in stringData)
                 {
-                    if (TimeSignature.regexMatch(line))
+                    string[] stringSplit = Regex.Split(line, @"\s+");
+                    uint position;
+                    string eventType;
+                    if (stringSplit.Length > TEXT_POS_DATA_1 && uint.TryParse(stringSplit[TEXT_POS_TICK], out position))
                     {
-                        MatchCollection matches = Regex.Matches(line, @"\d+");
-                        uint position = uint.Parse(matches[0].ToString());
-                        uint value = uint.Parse(matches[1].ToString());
-
-                        Add(new TimeSignature(position, value), false);
+                        eventType = stringSplit[TEXT_POS_EVENT_TYPE];
+                        eventType = eventType.ToLower();
                     }
-                    else if (BPM.regexMatch(line))
+                    else
+                        continue;
+
+                    if (eventType == "ts")
                     {
-                        MatchCollection matches = Regex.Matches(line, @"\d+");
-                        uint position = uint.Parse(matches[0].ToString());
-                        uint value = uint.Parse(matches[1].ToString());
+                        uint numerator;
+                        uint denominator = 2;
+
+                        if (!uint.TryParse(stringSplit[TEXT_POS_DATA_1], out numerator))
+                            continue;
+
+                        if (stringSplit.Length > TEXT_POS_DATA_1 + 1 && !uint.TryParse(stringSplit[TEXT_POS_DATA_1 + 1], out denominator))
+                            continue;
+
+                        Add(new TimeSignature(position, numerator, (uint)(Math.Pow(2, denominator))), false);
+                    }
+                    else if (eventType == "b")
+                    {
+                        uint value;
+                        if (!uint.TryParse(stringSplit[TEXT_POS_DATA_1], out value))
+                            continue;
 
                         Add(new BPM(position, value), false);
+                    }
+                    else if (eventType == "e")       // 0 = E "section Intro"
+                    {
+                        if (stringSplit.Length > TEXT_POS_DATA_1 + 1 && stringSplit[TEXT_POS_DATA_1] == "\"section")
+                        {
+                            string title = string.Empty;// = stringSplit[TEXT_POS_DATA_1 + 1].Trim('"');
+                            for (int i = TEXT_POS_DATA_1 + 1; i < stringSplit.Length; ++i)
+                            {
+                                title += stringSplit[i].Trim('"');
+                                if (i < stringSplit.Length - 1)
+                                    title += " ";
+                            }
+                            Add(new Section(title, position), false);
+                        }
+                        else
+                        {
+                            string title = stringSplit[TEXT_POS_DATA_1].Trim('"');
+                            Add(new Event(title, position), false);
+                        }
                     }
                 }
 #if TIMING_DEBUG
         Debug.Log("Synctrack load time: " + (Time.realtimeSinceStartup - time));
-#endif
-            }
-
-            void submitDataEvents(List<string> stringData)
-            {
-#if TIMING_DEBUG
-        float time = Time.realtimeSinceStartup;
-#endif
-                foreach (string line in stringData)
-                {
-                    if (Section.regexMatch(line))       // 0 = E "section Intro"
-                    {
-                        // Add a section
-                        string title = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"').Substring(8);
-                        uint position = uint.Parse(Regex.Matches(line, @"\d+")[0].ToString());
-                        Add(new Section(title, position), false);
-                    }
-                    else if (Event.regexMatch(line))    // 125952 = E "end"
-                    {
-                        // Add an event
-                        string title = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
-                        uint position = uint.Parse(Regex.Matches(line, @"\d+")[0].ToString());
-                        Add(new Event(title, position), false);
-                    }
-                }
-#if TIMING_DEBUG
-        Debug.Log("Events load time: " + (Time.realtimeSinceStartup - time));
 #endif
             }
 
@@ -1139,122 +1193,15 @@ namespace Moonscraper
 
                 return saveString;
             }
-
-            /// <summary>
-            /// Starts a thread that saves the song data in a .chart format to the specified path asynchonously. Can be monitored with the "IsSaving" parameter. 
-            /// </summary>
-            /// <param name="filepath">The path and filename to save to.</param>
-            /// <param name="forced">Will the notes from each chart have their flag properties saved into the file?</param>
-            public void SaveAsync(string filepath, bool forced = true)
+            
+            public void SaveAsync(string filepath, ExportOptions exportOptions)
             {
-                saveThread = new System.Threading.Thread(() => Save(filepath, forced));
+                saveThread = new System.Threading.Thread(() => Save(filepath, exportOptions));
                 saveThread.Start();
             }
-
-            /// <summary>
-            /// Saves the song data in a .chart format to the specified path.
-            /// </summary>
-            /// <param name="filepath">The path and filename to save to.</param>
-            /// <param name="forced">Will the notes from each chart have their flag properties saved into the file?</param>
-            public void Save(string filepath, bool forced = true)
+            public void Save(string filepath, ExportOptions exportOptions)
             {
-                string musicString = string.Empty;
-                string guitarString = string.Empty;
-                string rhythmString = string.Empty;
-
-                // Check if the audio location is the same as the filepath. If so, we only have to save the name of the file, not the full path.
-                if (/*musicStream && */audioLocations[MUSIC_STREAM_ARRAY_POS] != string.Empty && Path.GetDirectoryName(audioLocations[MUSIC_STREAM_ARRAY_POS]).Replace("\\", "/") == Path.GetDirectoryName(filepath).Replace("\\", "/"))
-                    musicString = Path.GetFileName(audioLocations[MUSIC_STREAM_ARRAY_POS]);
-                else
-                    musicString = audioLocations[MUSIC_STREAM_ARRAY_POS];
-
-                if (/*guitarStream && */audioLocations[GUITAR_STREAM_ARRAY_POS] != string.Empty && Path.GetDirectoryName(audioLocations[GUITAR_STREAM_ARRAY_POS]).Replace("\\", "/") == Path.GetDirectoryName(filepath).Replace("\\", "/"))
-                    guitarString = Path.GetFileName(audioLocations[GUITAR_STREAM_ARRAY_POS]);
-                else
-                    guitarString = audioLocations[GUITAR_STREAM_ARRAY_POS];
-
-                if (/*rhythmStream && */audioLocations[RHYTHM_STREAM_ARRAY_POS] != string.Empty && Path.GetDirectoryName(audioLocations[RHYTHM_STREAM_ARRAY_POS]).Replace("\\", "/") == Path.GetDirectoryName(filepath).Replace("\\", "/"))
-                    rhythmString = Path.GetFileName(audioLocations[RHYTHM_STREAM_ARRAY_POS]);
-                else
-                    rhythmString = audioLocations[RHYTHM_STREAM_ARRAY_POS];
-
-                string saveString = string.Empty;
-
-                // Song properties
-                saveString += "[Song]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
-                saveString += GetPropertiesStringWithoutAudio();
-
-                // Song audio
-                if (audioLocations[MUSIC_STREAM_ARRAY_POS] != string.Empty)//(songAudioLoaded)
-                    saveString += Globals.TABSPACE + "MusicStream = \"" + musicString + "\"" + Globals.LINE_ENDING;
-
-                if (audioLocations[GUITAR_STREAM_ARRAY_POS] != string.Empty)//(guitarAudioLoaded)
-                    saveString += Globals.TABSPACE + "GuitarStream = \"" + guitarString + "\"" + Globals.LINE_ENDING;
-
-                if (audioLocations[RHYTHM_STREAM_ARRAY_POS] != string.Empty)//(rhythmAudioLoaded)
-                    saveString += Globals.TABSPACE + "RhythmStream = \"" + rhythmString + "\"" + Globals.LINE_ENDING;
-
-                saveString += "}" + Globals.LINE_ENDING;
-
-                // SyncTrack
-                saveString += "[SyncTrack]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
-                saveString += GetSaveString(_syncTrack.ToArray());
-                saveString += "}" + Globals.LINE_ENDING;
-
-                // Events
-                saveString += "[Events]" + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
-                saveString += GetSaveString(_events.ToArray());
-                saveString += "}" + Globals.LINE_ENDING;
-
-                // Charts      
-                for (int i = 0; i < charts.Length; ++i)
-                {
-                    var difficulties = Enum.GetValues(typeof(Difficulty));
-
-                    foreach (Instrument instrument in Enum.GetValues(typeof(Instrument)))
-                    {
-                        string instrumentSaveString = string.Empty;
-                        switch (instrument)
-                        {
-                            case (Instrument.Guitar):
-                                instrumentSaveString = "Single";
-                                break;
-                            case (Instrument.GuitarCoop):
-                                instrumentSaveString = "DoubleGuitar";
-                                break;
-                            case (Instrument.Bass):
-                                instrumentSaveString = "DoubleBass";
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        foreach (Difficulty difficulty in Enum.GetValues(typeof(Difficulty)))
-                        {
-                            string difficultySaveString = difficulty.ToString();
-                            string chartString = GetChart(instrument, difficulty).GetChartString(forced);
-
-                            if (chartString == string.Empty)
-                                continue;
-
-                            string seperator = "[" + difficultySaveString + instrumentSaveString + "]";
-                            saveString += seperator + Globals.LINE_ENDING + "{" + Globals.LINE_ENDING;
-                            saveString += chartString;
-                            saveString += "}" + Globals.LINE_ENDING;
-                        }
-                    }
-                }
-
-                try
-                {
-                    // Save to file
-                    File.WriteAllText(filepath, saveString);
-                }
-                catch (System.Exception e)
-                {
-                    //Debug.LogError(e.Message);
-                    Console.WriteLine(e.Message);
-                }
+                new IO.ChartWriter(filepath).Write(this, exportOptions);
             }
 
             /// <summary>
@@ -1309,6 +1256,11 @@ namespace Moonscraper
                 return (float)time;
             }
 
+            public float ResolutionScaleRatio(float targetResoltion)
+            {
+                return (targetResoltion / resolution);
+            }
+
             public enum Difficulty
             {
                 Expert = 0, Hard = 1, Medium = 2, Easy = 3
@@ -1316,7 +1268,7 @@ namespace Moonscraper
 
             public enum Instrument
             {
-                Guitar = 0, GuitarCoop = 1, Bass = 2, Keys = 3
+                Guitar = 0, GuitarCoop = 1, Bass = 2, Keys = 3, Drums = 4
             }
         }
         /********** UNITY CONTEXT ONLY

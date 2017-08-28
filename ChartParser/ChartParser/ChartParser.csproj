@@ -30,8 +30,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="NAudio">
-      <HintPath>.\NAudio.dll</HintPath>
+    <Reference Include="MiscUtil-DotNet2-r285">
+      <HintPath>lib\MiscUtil-DotNet2-r285.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio, Version=1.8.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\NAudio.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -43,22 +47,27 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BPM.cs" />
-    <Compile Include="Chart.cs" />
-    <Compile Include="ChartEvent.cs" />
-    <Compile Include="ChartObject.cs" />
-    <Compile Include="Event.cs" />
-    <Compile Include="Globals.cs" />
-    <Compile Include="MidReader.cs" />
-    <Compile Include="Note.cs" />
-    <Compile Include="Section.cs" />
-    <Compile Include="Song.cs" />
-    <Compile Include="SongObject.cs" />
+    <Compile Include="src\IO\ByteSort.cs" />
+    <Compile Include="src\IO\ChartWriter.cs" />
+    <Compile Include="src\IO\ExportOptions.cs" />
+    <Compile Include="src\IO\MidWriter.cs" />
+    <Compile Include="src\Song\Events\BPM.cs" />
+    <Compile Include="src\Song\Chart.cs" />
+    <Compile Include="src\Song\Events\ChartEvent.cs" />
+    <Compile Include="src\Song\Events\ChartObject.cs" />
+    <Compile Include="src\Song\Events\Event.cs" />
+    <Compile Include="src\Globals.cs" />
+    <Compile Include="src\IO\MidReader.cs" />
+    <Compile Include="src\Song\Events\Note.cs" />
+    <Compile Include="src\Song\Events\Section.cs" />
+    <Compile Include="src\Song\Song.cs" />
+    <Compile Include="src\Song\Events\SongObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Starpower.cs" />
-    <Compile Include="SyncTrack.cs" />
-    <Compile Include="TimeSignature.cs" />
+    <Compile Include="src\Song\Events\Starpower.cs" />
+    <Compile Include="src\Song\Events\SyncTrack.cs" />
+    <Compile Include="src\Song\Events\TimeSignature.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

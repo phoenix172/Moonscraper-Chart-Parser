@@ -5,7 +5,7 @@ using NAudio.Midi;
 
 namespace Moonscraper
 {
-    namespace ChartParser
+    namespace ChartParser.IO
     {
         public static class MidReader
         {

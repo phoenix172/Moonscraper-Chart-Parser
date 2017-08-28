@@ -13,6 +13,13 @@ namespace Moonscraper
 
             public uint sustain_length;
             public Fret_Type fret_type;
+            public Drum_Fret_Type drum_fret_type
+            {
+                get
+                {
+                    return (Drum_Fret_Type)fret_type;
+                }
+            }
 
             /// <summary>
             /// Properties, such as forced or taps, are stored here in a bitwise format.
@@ -60,6 +67,13 @@ namespace Moonscraper
                 // Assign to the sprite array position
                 GREEN = 0, RED = 1, YELLOW = 2, BLUE = 3, ORANGE = 4, OPEN = 5
             }
+
+            public enum Drum_Fret_Type
+            {
+                // Wrapper to account for how the frets change colours between the drums and guitar tracks from the GH series
+                KICK = Fret_Type.OPEN, RED = Fret_Type.GREEN, YELLOW = Fret_Type.RED, BLUE = Fret_Type.YELLOW, ORANGE = Fret_Type.BLUE, GREEN = Fret_Type.ORANGE
+            }
+
 
             public enum Note_Type
             {
@@ -203,12 +217,7 @@ namespace Moonscraper
             {
                 get
                 {
-                    if (previous != null && previous.position == position)
-                        return true;
-                    else if (next != null && next.position == position)
-                        return true;
-                    else
-                        return false;
+                    return ((previous != null && previous.position == position) || (next != null && next.position == position));
                 }
             }
 
@@ -223,8 +232,9 @@ namespace Moonscraper
 
                     if (!IsChord && previous != null)
                     {
+                        bool prevIsChord = previous.IsChord;
                         // Need to consider whether the previous note was a chord, and if they are the same type of note
-                        if (previous.IsChord || (!previous.IsChord && fret_type != previous.fret_type))
+                        if (prevIsChord || (!prevIsChord && fret_type != previous.fret_type))
                         {
                             // Check distance from previous note 
                             int HOPODistance = (int)(65 * song.resolution / Globals.STANDARD_BEAT_RESOLUTION);
@@ -360,7 +370,7 @@ namespace Moonscraper
 
             public static Note[] GetPreviousOfSustains(Note startNote)
             {
-                List<Note> list = new List<Note>();
+                List<Note> list = new List<Note>(6);
 
                 Note previous = startNote.previous;
 
@@ -371,6 +381,13 @@ namespace Moonscraper
                 {
                     if (previous.fret_type == Note.Fret_Type.OPEN)
                     {
+                        /*if (Globals.extendedSustainsEnabled)
+                        {
+                            list.Add(previous);
+                            return list.ToArray();
+                        }
+
+                        else */
                         if (list.Count > 0)
                             return list.ToArray();
                         else
@@ -425,18 +442,97 @@ namespace Moonscraper
 
                 return list.ToArray();
             }
+            /*
+            public ActionHistory.Modify CapSustain(Note cap)
+            {
+                if (cap == null)
+                    return null;
+
+                Note originalNote = (Note)this.Clone();
+
+                // Cap sustain length
+                if (cap.position <= position)
+                    sustain_length = 0;
+                else if (position + sustain_length > cap.position)        // Sustain extends beyond cap note 
+                {
+                    sustain_length = cap.position - position;
+                }
+
+                uint gapDis = (uint)(song.resolution * 4.0f / Globals.sustainGap);
+
+                if (Globals.sustainGapEnabled && sustain_length > 0 && (position + sustain_length > cap.position - gapDis))
+                {
+                    if ((int)(cap.position - gapDis - position) > 0)
+                        sustain_length = cap.position - gapDis - position;
+                    else
+                        sustain_length = 0;
+                }
+
+                if (originalNote.sustain_length != sustain_length)
+                    return new ActionHistory.Modify(originalNote, this);
+                else
+                    return null;
+            }
 
             public override void Delete(bool update = true)
             {
                 base.Delete(update);
 
                 // Update the previous note in the case of chords with 2 notes
-                /*
                 if (previous != null && previous.controller)
                     previous.controller.UpdateSongObject();
                 if (next != null && next.controller)
-                    next.controller.UpdateSongObject();*/
+                    next.controller.UpdateSongObject();
             }
+
+            public Note FindNextSameFretWithinSustainExtendedCheck()
+            {
+                Note next = this.next;
+
+                while (next != null)
+                {
+                    if (!Globals.extendedSustainsEnabled)
+                    {
+                        if ((next.fret_type == Note.Fret_Type.OPEN || (position < next.position)) && position != next.position)
+                            return next;
+                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
+                        //return null;
+                    }
+                    else
+                    {
+                        if ((fret_type != Fret_Type.OPEN && next.fret_type == Note.Fret_Type.OPEN && !Globals.drumMode) || (next.fret_type == fret_type))
+                            return next;
+                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
+                        //return null;
+                    }
+
+                    next = next.next;
+                }
+
+                return null;
+            }
+
+            /// <summary>
+            /// Calculates and sets the sustain length based the tick position it should end at. Will be a length of 0 if the note position is greater than the specified position.
+            /// </summary>
+            /// <param name="pos">The end-point for the sustain.</param>
+            public void SetSustainByPos(uint pos)
+            {
+                if (pos > position)
+                    sustain_length = pos - position;
+                else
+                    sustain_length = 0;
+
+                // Cap the sustain
+                Note nextFret;
+
+                nextFret = FindNextSameFretWithinSustainExtendedCheck();
+
+                if (nextFret != null)
+                {
+                    CapSustain(nextFret);
+                }
+            }*/
 
             public void SetType(Note_Type type)
             {
@@ -472,93 +568,36 @@ namespace Moonscraper
                         break;
 
                     case (Note_Type.Tap):
-                        flags |= Note.Flags.TAP;
+                        if (fret_type != Fret_Type.OPEN)
+                            flags |= Note.Flags.TAP;
                         break;
 
                     default:
                         break;
                 }
+
+                applyFlagsToChord();
             }
 
-            /*
-            public void ActionHistory.Modify CapSustain(Note cap)
+            public static Fret_Type SaveGuitarNoteToDrumNote(Fret_Type fret_type)
             {
-                Note originalNote = (Note)this.Clone();
-
-                // Cap sustain length
-                if (cap.position <= position)
-                    sustain_length = 0;
-                else if (position + sustain_length > cap.position)        // Sustain extends beyond cap note 
-                {
-                    sustain_length = cap.position - position;
-                }
-
-                uint gapDis = (uint)(song.resolution * 4.0f / Globals.sustainGap);
-
-                if (Globals.sustainGapEnabled && sustain_length > 0 && (position + sustain_length > cap.position - gapDis))
-                {
-                    if ((int)(cap.position - gapDis - position) > 0)
-                        sustain_length = cap.position - gapDis - position;
-                    else
-                        sustain_length = 0;
-                }
-                
-                if (originalNote.sustain_length != sustain_length)
-                    return new ActionHistory.Modify(originalNote, this);
+                if (fret_type == Fret_Type.OPEN)
+                    return Fret_Type.GREEN;
+                else if (fret_type == Fret_Type.ORANGE)
+                    return Fret_Type.OPEN;
                 else
-                    return null;
+                    return fret_type + 1;
             }
 
-            public Note FindNextSameFretWithinSustainExtendedCheck()
+            public static Fret_Type LoadDrumNoteToGuitarNote(Fret_Type fret_type)
             {
-                Note next = this.next;
-
-                while (next != null)
-                {
-                    if (!Globals.extendedSustainsEnabled)
-                    {
-                        if (next.fret_type == Note.Fret_Type.OPEN || (position < next.position))
-                            return next;
-                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
-                        //return null;
-                    }
-                    else
-                    {
-                        if (next.fret_type == Note.Fret_Type.OPEN || (next.fret_type == fret_type))
-                            return next;
-                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
-                        //return null;
-                    }
-
-                    next = next.next;
-                }
-
-                return null;
+                if (fret_type == Fret_Type.OPEN)
+                    return Fret_Type.ORANGE;
+                else if (fret_type == Fret_Type.GREEN)
+                    return Fret_Type.OPEN;
+                else
+                    return fret_type - 1;
             }
-
-            /// <summary>
-            /// Calculates and sets the sustain length based the tick position it should end at. Will be a length of 0 if the note position is greater than the specified position.
-            /// </summary>
-            /// <param name="pos">The end-point for the sustain.</param>
-            public void SetSustainByPos(uint pos)
-            {
-                if (pos > position)
-                    sustain_length = pos - position;
-                else
-                    sustain_length = 0;
-
-                // Cap the sustain
-                Note nextFret;
-                if (fret_type == Note.Fret_Type.OPEN)
-                    nextFret = next;
-                else
-                    nextFret = FindNextSameFretWithinSustainExtendedCheck();
-
-                if (nextFret != null)
-                {
-                    CapSustain(nextFret);
-                }
-            }*/
         }
     }
 }

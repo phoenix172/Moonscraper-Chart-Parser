@@ -106,7 +106,7 @@ namespace Moonscraper
                 }
 
                 updateArrays();
-                //ChartEditor.editOccurred = true;
+               // ChartEditor.editOccurred = true;
             }
 
             /// <summary>
@@ -169,12 +169,12 @@ namespace Moonscraper
                 return success;
             }
 
-            public void Load(List<string> data)
+            public void Load(List<string> data, Song.Instrument instrument = Song.Instrument.Guitar)
             {
-                Load(data.ToArray());
+                Load(data.ToArray(), instrument);
             }
 
-            public void Load(string[] data)
+            public void Load(string[] data, Song.Instrument instrument = Song.Instrument.Guitar)
             {
 #if TIMING_DEBUG
         float time = Time.realtimeSinceStartup;
@@ -212,9 +212,19 @@ namespace Moonscraper
                                     case (4):
                                         // Add note to the data
                                         Note newStandardNote = new Note(position, (Note.Fret_Type)fret_type, length);
+                                        if (instrument == Song.Instrument.Drums)
+                                            newStandardNote.fret_type = Note.LoadDrumNoteToGuitarNote(newStandardNote.fret_type);
                                         Add(newStandardNote, false);
                                         break;
                                     case (5):
+                                        if (instrument == Song.Instrument.Drums)
+                                        {
+                                            Note drumNote = new Note(position, Note.Fret_Type.ORANGE, length);
+                                            Add(drumNote, false);
+                                            break;
+                                        }
+                                        else
+                                            goto case (6);
                                     case (6):
                                         flags.Add(line);
                                         break;
@@ -285,7 +295,7 @@ namespace Moonscraper
                 catch (System.Exception e)
                 {
                     // Bad load, most likely a parsing error
-                    System.Console.Write(e.Message);
+                    System.Console.WriteLine("Error: " + e.Message);
                     //Debug.LogError(e.Message);
                     _chartObjects.Clear();
                 }
