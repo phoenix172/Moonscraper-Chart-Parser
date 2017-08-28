@@ -7,7 +7,7 @@ namespace Moonscraper
 {
     namespace ChartParser.IO
     {
-        static class MidWriter
+        public static class MidWriter
         {
             const byte TRACK_NAME_EVENT = 0x03;
             const byte TEXT_EVENT = 0x01;
