@@ -9,14 +9,14 @@ namespace Moonscraper
     {
         public static class MidReader
         {
-
             public static Song ReadMidi(string path)
             {
                 Song song = new Song();
                 string directory = System.IO.Path.GetDirectoryName(path);
                 song.musicSongName = directory + "\\song.ogg";
                 song.guitarSongName = directory + "\\guitar.ogg";
-                song.rhythmSongName = directory + "\\bass.ogg";
+                song.rhythmSongName = directory + "\\rhythm.ogg";
+                song.drumSongName = directory + "\\drums.ogg";
 
                 MidiFile midi;
 
@@ -56,12 +56,36 @@ namespace Moonscraper
                         case ("part keys"):
                             ReadNotes(midi.Events[i], song, Song.Instrument.Keys);
                             break;
+                        case ("part drums"):
+                            ReadNotes(midi.Events[i], song, Song.Instrument.Drums);
+                            break;
+                        case ("beat"):
+                            //ReadTrack(midi.Events[i]);
+                            break;
                         default:
                             break;
                     }
                 }
 
                 return song;
+            }
+
+            static void ReadTrack(IList<MidiEvent> track)
+            {
+                foreach (var me in track)
+                {
+                    var note = me as NoteOnEvent;
+                    if (note != null)
+                    {
+                        Console.WriteLine("Note: " + note.NoteNumber + ", Pos: " + note.AbsoluteTime + ", Vel: " + note.Velocity + ", Channel: " + note.Channel + ", Off pos: " + note.OffEvent.AbsoluteTime);
+                    }
+
+                    var text = me as TextEvent;
+                    if (text != null)
+                    {
+                        Console.WriteLine(text.Text + " " + text.AbsoluteTime);
+                    }
+                }
             }
 
             private static void ReadSync(IList<MidiEvent> track, Song song)
@@ -72,7 +96,8 @@ namespace Moonscraper
                     if (ts != null)
                     {
                         var tick = me.AbsoluteTime;
-                        song.Add(new TimeSignature((uint)tick, (uint)ts.Numerator), false);
+
+                        song.Add(new TimeSignature((uint)tick, (uint)ts.Numerator, (uint)(Math.Pow(2, ts.Denominator))), false);
                         continue;
                     }
                     var tempo = me as TempoEvent;
@@ -117,11 +142,21 @@ namespace Moonscraper
                 List<NoteOnEvent> forceNotesList = new List<NoteOnEvent>();
                 List<SysexEvent> tapAndOpenEvents = new List<SysexEvent>();
 
-                int rbSustainFixLength = (int)(song.resolution / Globals.STANDARD_BEAT_RESOLUTION * 64);
+                int rbSustainFixLength = (int)(64 * song.resolution / Globals.STANDARD_BEAT_RESOLUTION);
 
                 // Load all the notes
                 for (int i = 0; i < track.Count; i++)
                 {
+                    var text = track[i] as TextEvent;
+                    if (text != null)
+                    {
+                        var tick = (uint)text.AbsoluteTime;
+                        var eventName = text.Text.Trim(new char[] { '[', ']' });
+
+                        song.GetChart(instrument, Song.Difficulty.Expert).Add(new ChartEvent(tick, eventName));
+                        //Debug.Log(text.Text + " " + text.AbsoluteTime);
+                    }
+
                     var note = track[i] as NoteOnEvent;
                     if (note != null && note.OffEvent != null)
                     {
@@ -150,20 +185,23 @@ namespace Moonscraper
                         }
 
                         // Check if we're reading a forcing event instead of a regular note
-                        switch (note.NoteNumber)
+                        if (instrument != Song.Instrument.Drums)
                         {
-                            case 65:
-                            case 66:
-                            case 77:
-                            case 78:
-                            case 89:
-                            case 90:
-                            case 101:
-                            case 102:
-                                forceNotesList.Add(note);       // Store the event for later processing and continue
-                                continue;
-                            default:
-                                break;
+                            switch (note.NoteNumber)
+                            {
+                                case 65:
+                                case 66:
+                                case 77:
+                                case 78:
+                                case 89:
+                                case 90:
+                                case 101:
+                                case 102:
+                                    forceNotesList.Add(note);       // Store the event for later processing and continue
+                                    continue;
+                                default:
+                                    break;
+                            }
                         }
 
                         Note.Fret_Type fret;
@@ -199,9 +237,24 @@ namespace Moonscraper
                             case 88:
                             case 100: fret = Note.Fret_Type.ORANGE; break;
 
+                            case 65:
+                            case 77:
+                            case 89:
+                            case 101:
+                                if (instrument == Song.Instrument.Drums)
+                                {
+                                    fret = Note.Fret_Type.OPEN;     // Gets converted to an orange note later on
+                                    break;
+                                }
+                                else
+                                    continue;
                             default:
+                                Console.WriteLine("Unknown note: " + note.NoteNumber);
                                 continue;
                         }
+
+                        if (instrument == Song.Instrument.Drums)
+                            fret = Note.LoadDrumNoteToGuitarNote(fret);
 
                         // Add the note to the correct chart
                         song.GetChart(instrument, difficulty).Add(new Note(tick, fret, sus), false);
@@ -210,6 +263,7 @@ namespace Moonscraper
                     var sysexEvent = track[i] as SysexEvent;
                     if (sysexEvent != null)
                     {
+                        //Debug.Log(BitConverter.ToString(sysexEvent.GetData()));
                         tapAndOpenEvents.Add(sysexEvent);
                     }
                 }
@@ -222,7 +276,8 @@ namespace Moonscraper
                 foreach (NoteOnEvent flagEvent in forceNotesList)
                 {
                     uint tick = (uint)flagEvent.AbsoluteTime;
-                    uint endPos = (uint)(flagEvent.OffEvent.AbsoluteTime - tick); //song.TimeToChartPosition(flagEvent.OffEvent.AbsoluteTime / 1000.0f, song.resolution, false);
+                    uint endPos = (uint)(flagEvent.OffEvent.AbsoluteTime - tick);
+
                     Song.Difficulty difficulty;
 
                     // Determine which difficulty we are manipulating
@@ -236,19 +291,20 @@ namespace Moonscraper
                     }
 
                     Chart chart = song.GetChart(instrument, difficulty);
-                    Note[] notesToFlag = SongObject.GetRange(chart.notes, tick, tick + endPos);
-                    foreach (Note note in notesToFlag)
+                    int index, length;
+                    SongObject.GetRange(chart.notes, tick, tick + endPos, out index, out length);
+
+                    for (int i = index; i < index + length; ++i)
                     {
                         // if NoteNumber is odd force hopo, if even force strum
                         if (flagEvent.NoteNumber % 2 != 0)
-                            note.SetType(Note.Note_Type.Hopo);
+                            chart.notes[i].SetType(Note.Note_Type.Hopo);
                         else
-                            note.SetType(Note.Note_Type.Strum);
+                            chart.notes[i].SetType(Note.Note_Type.Strum);
                     }
                 }
 
                 // Apply tap and open note events
-
                 System.Array difficultyValues = System.Enum.GetValues(typeof(Song.Difficulty));
                 Chart[] chartsOfInstrument = new Chart[difficultyValues.Length];
 
@@ -270,7 +326,7 @@ namespace Moonscraper
                         uint endPos = 0;
 
                         // Find the end of the tap section
-                        for (int j = i; j < tapAndOpenEvents.Count; j++)
+                        for (int j = i; j < tapAndOpenEvents.Count; ++j)
                         {
                             var se2 = tapAndOpenEvents[j];
                             var bytes2 = se2.GetData();
@@ -290,17 +346,18 @@ namespace Moonscraper
                         // Apply tap property
                         foreach (Chart chart in chartsOfInstrument)
                         {
-                            Note[] notesToFlag = SongObject.GetRange(chart.notes, tick, tick + endPos);
-                            foreach (Note note in notesToFlag)
+                            int index, length;
+                            SongObject.GetRange(chart.notes, tick, tick + endPos, out index, out length);
+                            for (int k = index; k < index + length; ++k)
                             {
-                                note.SetType(Note.Note_Type.Tap);
+                                chart.notes[k].SetType(Note.Note_Type.Tap);
                             }
                         }
                     }
 
                     // Check for open notes
                     // 5th byte determines the difficulty to apply to
-                    else if (bytes.Length == 8 && bytes[5] >= 0 && bytes[5] <= 4 && bytes[7] == 1)
+                    else if (bytes.Length == 8 && bytes[5] >= 0 && bytes[5] < 4 && bytes[7] == 1)
                     {
                         uint tick = (uint)se1.AbsoluteTime;
                         Song.Difficulty difficulty;
@@ -314,7 +371,7 @@ namespace Moonscraper
                         }
 
                         uint endPos = 0;
-                        for (int j = i; j < tapAndOpenEvents.Count; j++)
+                        for (int j = i; j < tapAndOpenEvents.Count; ++j)
                         {
                             var se2 = tapAndOpenEvents[j] as SysexEvent;
                             if (se2 != null)
@@ -332,10 +389,15 @@ namespace Moonscraper
                             }
                         }
 
-                        Note[] notesToConvert = SongObject.GetRange(song.GetChart(instrument, difficulty).notes, tick, tick + endPos);
-                        foreach (Note note in notesToConvert)
+                        int index, length;
+                        Note[] notes = song.GetChart(instrument, difficulty).notes;
+                        SongObject.GetRange(notes, tick, tick + endPos, out index, out length);
+                        for (int k = index; k < index + length; ++k)
                         {
-                            note.fret_type = Note.Fret_Type.OPEN;
+                            notes[k].fret_type = Note.Fret_Type.OPEN;
+
+                            if (instrument == Song.Instrument.Drums)
+                                notes[k].fret_type = Note.LoadDrumNoteToGuitarNote(notes[k].fret_type);
                         }
                     }
 

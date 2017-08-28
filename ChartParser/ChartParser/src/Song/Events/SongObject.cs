@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 
 namespace Moonscraper
 {
@@ -9,16 +10,17 @@ namespace Moonscraper
             /// <summary>
             /// The song this object is connected to.
             /// </summary>
+            [System.NonSerialized]
             public Song song;
             /// <summary>
             /// The tick position of the object
             /// </summary>
             public uint position;
-            /*
             /// <summary>
             /// Unity only.
             /// </summary>
-            public SongObjectController controller;*/
+            //[System.NonSerialized]
+            //public SongObjectController controller;
             public const int NOTFOUND = -1;
 
             public abstract int classID { get; }
@@ -60,8 +62,7 @@ namespace Moonscraper
             /// If set to false, you must manually call the updateArrays() method, but is useful when deleting multiple objects as it increases performance dramatically.</param>
             public virtual void Delete(bool update = true)
             {
-                /*
-                if (controller)
+                /*if (controller)
                 {
                     controller.gameObject.SetActive(false);
                 }*/
@@ -138,6 +139,12 @@ namespace Moonscraper
             public override int GetHashCode()
             {
                 return base.GetHashCode();
+            }
+
+            public static uint TickScaling(uint tick, float originalResolution, float outputResolution)
+            {
+                tick = (uint)Math.Round(tick * outputResolution / originalResolution);
+                return tick;
             }
 
             /// <summary>
@@ -275,6 +282,18 @@ namespace Moonscraper
                 int pos = FindClosestPosition(searchItem, objects);
 
                 if (pos != NOTFOUND && objects[pos] != searchItem)
+                {
+                    pos = NOTFOUND;
+                }
+
+                return pos;
+            }
+
+            public static int FindObjectPosition<T>(uint position, T[] objects) where T : SongObject
+            {
+                int pos = FindClosestPosition(position, objects);
+
+                if (pos != NOTFOUND && objects[pos].position != position)
                 {
                     pos = NOTFOUND;
                 }
@@ -509,6 +528,16 @@ namespace Moonscraper
 
                 return false;
             }
+            public static T[] GetRangeCopy<T>(T[] list, uint minPos, uint maxPos) where T : SongObject
+            {
+                int index, length;
+                GetRange(list, minPos, maxPos, out index, out length);
+
+                T[] rangedList = new T[length];
+                System.Array.Copy(list, index, rangedList, 0, rangedList.Length);
+
+                return rangedList;
+            }
 
             /// <summary>
             /// Gets a collection of items between a minimum and maximum tick position range.
@@ -518,16 +547,19 @@ namespace Moonscraper
             /// <param name="minPos">The minimum range (inclusive).</param>
             /// <param name="maxPos">The maximum range (inclusive).</param>
             /// <returns>Returns all the objects found between the minimum and maximum tick positions specified.</returns>
-            public static T[] GetRange<T>(T[] list, uint minPos, uint maxPos) where T : SongObject
+            public static void GetRange<T>(T[] list, uint minPos, uint maxPos, out int index, out int length) where T : SongObject
             {
+                index = 0;
+                length = 0;
+
                 if (minPos > maxPos || list.Length < 1)
-                    return new T[0];
+                    return;// new T[0];
 
                 int minArrayPos = FindClosestPosition(minPos, list);
                 int maxArrayPos = FindClosestPosition(maxPos, list);
 
                 if (minArrayPos == NOTFOUND || maxArrayPos == NOTFOUND)
-                    return new T[0];
+                    return;// new T[0];
                 else
                 {
                     // Find position may return an object located at a lower position than the minimum position
@@ -537,7 +569,7 @@ namespace Moonscraper
                     }
 
                     if (minArrayPos > list.Length - 1)
-                        return new T[0];
+                        return;// new T[0];
 
                     // Iterate to the very first object at a greater position, as there may be multiple objects located at the same position
                     while (minArrayPos - 1 >= 0 && list[minArrayPos - 1].position >= minPos)
@@ -552,7 +584,7 @@ namespace Moonscraper
                     }
 
                     if (maxArrayPos < 0)
-                        return new T[0];
+                        return;// new T[0];
 
                     // Iterate to the very last object at a lesser position, as there may be multiple objects located at the same position
                     while (maxArrayPos + 1 < list.Length && list[maxArrayPos + 1].position <= maxPos)
@@ -561,12 +593,14 @@ namespace Moonscraper
                     }
 
                     if (minArrayPos > maxArrayPos)
-                        return new T[0];
+                        return;// new T[0];
 
-                    T[] rangedList = new T[maxArrayPos - minArrayPos + 1];
-                    System.Array.Copy(list, minArrayPos, rangedList, 0, rangedList.Length);
+                    //T[] rangedList = new T[maxArrayPos - minArrayPos + 1];
+                    index = minArrayPos;
+                    length = maxArrayPos - minArrayPos + 1;
+                    //System.Array.Copy(list, minArrayPos, rangedList, 0, rangedList.Length);
 
-                    return rangedList;
+                    //return rangedList;
                 }
             }
 
@@ -596,7 +630,7 @@ namespace Moonscraper
             {
                 TimeSignature, BPM, Event, Section, Note, Starpower, ChartEvent
             }
-        }
 
+        }
     }
 }
