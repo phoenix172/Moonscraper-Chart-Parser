@@ -182,6 +182,8 @@ namespace Moonscraper
                     saveString += Globals.TABSPACE + "Artist = \"" + song.artist + "\"" + Globals.LINE_ENDING;
                 if (song.charter != string.Empty)
                     saveString += Globals.TABSPACE + "Charter = \"" + song.charter + "\"" + Globals.LINE_ENDING;
+                if (song.album != string.Empty)
+                    saveString += Globals.TABSPACE + "Album = \"" + song.album + "\"" + Globals.LINE_ENDING;
                 if (song.year != string.Empty)
                     saveString += Globals.TABSPACE + "Year = \", " + song.year + "\"" + Globals.LINE_ENDING;
                 saveString += Globals.TABSPACE + "Offset = " + song.offset + Globals.LINE_ENDING;

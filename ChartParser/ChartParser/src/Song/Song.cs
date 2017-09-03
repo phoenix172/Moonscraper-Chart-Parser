@@ -35,7 +35,7 @@ namespace Moonscraper
             public int difficulty = 0;
             public float offset = 0, previewStart = 0, previewEnd = 0, resolution = 192;
             public string genre = "rock", mediatype = "cd";
-            public string year = string.Empty;
+            public string album = string.Empty, year = string.Empty;
             /*
             SampleData[] audioSampleData = new SampleData[4];
             public SampleData musicSample { get { return audioSampleData[MUSIC_STREAM_ARRAY_POS]; } private set { audioSampleData[MUSIC_STREAM_ARRAY_POS] = value; } }
@@ -950,6 +950,7 @@ namespace Moonscraper
                 Regex previewEndRegex = new Regex(@"PreviewEnd = " + FLOATSEARCH);
                 Regex genreRegex = new Regex(@"Genre = " + QUOTEVALIDATE);
                 Regex yearRegex = new Regex(@"Year = " + QUOTEVALIDATE);
+                Regex albumRegex = new Regex(@"Album = " + QUOTEVALIDATE);
                 Regex mediaTypeRegex = new Regex(@"MediaType = " + QUOTEVALIDATE);
                 Regex musicStreamRegex = new Regex(@"MusicStream = " + QUOTEVALIDATE);
                 Regex guitarStreamRegex = new Regex(@"GuitarStream = " + QUOTEVALIDATE);
@@ -976,6 +977,12 @@ namespace Moonscraper
                         else if (charterRegex.IsMatch(line))
                         {
                             charter = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
+                        }
+
+                        // Album = "Rockman Holic"
+                        else if (albumRegex.IsMatch(line))
+                        {
+                            album = Regex.Matches(line, QUOTESEARCH)[0].ToString().Trim('"');
                         }
 
                         // Offset = 0
@@ -1086,36 +1093,6 @@ namespace Moonscraper
 
                 if (File.Exists(audioFilepath) && Globals.validateExtension(audioFilepath, Globals.validAudioExtensions))
                     audioLocations[streamArrayPos] = Path.GetFullPath(audioFilepath);
-            }
-
-            string GetPropertiesStringWithoutAudio()
-            {
-                string saveString = string.Empty;
-
-                // Song properties  
-                if (name != string.Empty)
-                    saveString += Globals.TABSPACE + "Name = \"" + name + "\"" + Globals.LINE_ENDING;
-                if (artist != string.Empty)
-                    saveString += Globals.TABSPACE + "Artist = \"" + artist + "\"" + Globals.LINE_ENDING;
-                if (charter != string.Empty)
-                    saveString += Globals.TABSPACE + "Charter = \"" + charter + "\"" + Globals.LINE_ENDING;
-                if (year != string.Empty)
-                    saveString += Globals.TABSPACE + "Year = \", " + year + "\"" + Globals.LINE_ENDING;
-                saveString += Globals.TABSPACE + "Offset = " + offset + Globals.LINE_ENDING;
-                saveString += Globals.TABSPACE + "Resolution = " + resolution + Globals.LINE_ENDING;
-                if (player2 != string.Empty)
-                    saveString += Globals.TABSPACE + "Player2 = " + player2.ToLower() + Globals.LINE_ENDING;
-                saveString += Globals.TABSPACE + "Difficulty = " + difficulty + Globals.LINE_ENDING;
-                if (manualLength)
-                    saveString += Globals.TABSPACE + "Length = " + _length + Globals.LINE_ENDING;
-                saveString += Globals.TABSPACE + "PreviewStart = " + previewStart + Globals.LINE_ENDING;
-                saveString += Globals.TABSPACE + "PreviewEnd = " + previewEnd + Globals.LINE_ENDING;
-                if (genre != string.Empty)
-                    saveString += Globals.TABSPACE + "Genre = \"" + genre + "\"" + Globals.LINE_ENDING;
-                if (mediatype != string.Empty)
-                    saveString += Globals.TABSPACE + "MediaType = \"" + mediatype + "\"" + Globals.LINE_ENDING;
-
-                return saveString;
             }
 
             void submitDataGlobals(List<string> stringData)
