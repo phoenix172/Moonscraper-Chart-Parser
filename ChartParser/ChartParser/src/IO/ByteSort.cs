@@ -2,7 +2,7 @@
 {
     namespace ChartParser.IO
     {
-        class SortableBytes
+        public class SortableBytes
         {
             public uint position;
             public byte[] bytes;

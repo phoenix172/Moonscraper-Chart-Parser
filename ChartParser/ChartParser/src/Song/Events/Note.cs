@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) 2016-2017 Alexander Ong
+// See LICENSE in project root for license information.
+
+using System;
 using System.Collections.Generic;
 
 namespace Moonscraper
@@ -12,12 +15,36 @@ namespace Moonscraper
             public override int classID { get { return (int)_classID; } }
 
             public uint sustain_length;
-            public Fret_Type fret_type;
+            public int rawNote;
+            public Fret_Type fret_type
+            {
+                get
+                {
+                    return (Fret_Type)rawNote;
+                }
+                set
+                {
+                    rawNote = (int)value;
+                }
+            }
+
             public Drum_Fret_Type drum_fret_type
             {
                 get
                 {
                     return (Drum_Fret_Type)fret_type;
+                }
+            }
+
+            public GHLive_Fret_Type ghlive_fret_type
+            {
+                get
+                {
+                    return (GHLive_Fret_Type)rawNote;
+                }
+                set
+                {
+                    rawNote = (int)value;
                 }
             }
 
@@ -34,12 +61,19 @@ namespace Moonscraper
             /// The next note in the linked-list.
             /// </summary>
             public Note next;
-            /*
-            new public NoteController controller
+
+            public Note(uint _position,
+                        int _rawNote,
+                        uint _sustain = 0,
+                        Flags _flags = Flags.NONE) : base(_position)
             {
-                get { return (NoteController)base.controller; }
-                set { base.controller = value; }
-            }*/
+                sustain_length = _sustain;
+                flags = _flags;
+                rawNote = _rawNote;
+
+                previous = null;
+                next = null;
+            }
 
             public Note(uint _position,
                         Fret_Type _fret_type,
@@ -59,7 +93,7 @@ namespace Moonscraper
                 position = note.position;
                 sustain_length = note.sustain_length;
                 flags = note.flags;
-                fret_type = note.fret_type;
+                rawNote = note.rawNote;
             }
 
             public enum Fret_Type
@@ -74,6 +108,12 @@ namespace Moonscraper
                 KICK = Fret_Type.OPEN, RED = Fret_Type.GREEN, YELLOW = Fret_Type.RED, BLUE = Fret_Type.YELLOW, ORANGE = Fret_Type.BLUE, GREEN = Fret_Type.ORANGE
             }
 
+            public enum GHLive_Fret_Type
+            {
+                // Assign to the sprite array position
+                //WHITE_1, BLACK_1, WHITE_2, BLACK_2, WHITE_3, BLACK_3, OPEN
+                BLACK_1, BLACK_2, BLACK_3, WHITE_1, WHITE_2, WHITE_3, OPEN
+            }
 
             public enum Note_Type
             {
@@ -136,6 +176,7 @@ namespace Moonscraper
                 }
             }
 
+            // Deprecated
             internal override string GetSaveString()
             {
                 int fretNumber = (int)fret_type;
@@ -153,7 +194,7 @@ namespace Moonscraper
 
             public override bool AllValuesCompare<T>(T songObject)
             {
-                if (this == songObject && (songObject as Note).sustain_length == sustain_length && (songObject as Note).fret_type == fret_type && (songObject as Note).flags == flags)
+                if (this == songObject && (songObject as Note).sustain_length == sustain_length && (songObject as Note).rawNote == rawNote && (songObject as Note).flags == flags)
                     return true;
                 else
                     return false;
@@ -177,7 +218,7 @@ namespace Moonscraper
                 if (b.GetType() == typeof(Note))
                 {
                     Note realB = b as Note;
-                    if (position == realB.position && fret_type == realB.fret_type)
+                    if (position == realB.position && rawNote == realB.rawNote)
                         return true;
                     else
                         return false;
@@ -195,7 +236,7 @@ namespace Moonscraper
                         return true;
                     else if (position == b.position)
                     {
-                        if (fret_type < realB.fret_type)
+                        if (rawNote < realB.rawNote)
                             return true;
                     }
 
@@ -234,10 +275,10 @@ namespace Moonscraper
                     {
                         bool prevIsChord = previous.IsChord;
                         // Need to consider whether the previous note was a chord, and if they are the same type of note
-                        if (prevIsChord || (!prevIsChord && fret_type != previous.fret_type))
+                        if (prevIsChord || (!prevIsChord && rawNote != previous.rawNote))
                         {
                             // Check distance from previous note 
-                            int HOPODistance = (int)(65 * song.resolution / Globals.STANDARD_BEAT_RESOLUTION);
+                            int HOPODistance = (int)(65 * song.resolution / Song.STANDARD_BEAT_RESOLUTION);
 
                             if (position - previous.position <= HOPODistance)
                                 HOPO = true;
@@ -277,7 +318,7 @@ namespace Moonscraper
                     int mask = 0;
 
                     foreach (Note note in chord)
-                        mask |= (1 << (int)note.fret_type);
+                        mask |= (1 << note.rawNote);
 
                     return mask;
                 }
@@ -290,7 +331,7 @@ namespace Moonscraper
             {
                 get
                 {
-                    if (fret_type != Fret_Type.OPEN && (flags & Flags.TAP) == Flags.TAP)
+                    if (!IsOpenNote() && (flags & Flags.TAP) == Flags.TAP)
                     {
                         return Note_Type.Tap;
                     }
@@ -344,166 +385,44 @@ namespace Moonscraper
             {
                 get
                 {
-                    Note seperatePrevious = previous;
-                    while (seperatePrevious != null && seperatePrevious.position == position)
-                        seperatePrevious = seperatePrevious.previous;
+                    Note seperatePrevious = previousSeperateNote;
 
-                    /*if ((previous == null) || (previous != null && !IsChord && !previous.IsChord && previous.fret_type == fret_type))*/
                     if ((seperatePrevious == null) || (seperatePrevious != null && mask == seperatePrevious.mask))
                         return true;
-                    /*
-                    else
-                    {
-                        Note[] chordNotes = GetChord();
-
-                        foreach (Note chordNote in chordNotes)
-                        {
-                            if (chordNote.previous == null)
-                                return true;
-                        }
-                        return false;
-                    }*/
 
                     return false;
                 }
             }
 
-            public static Note[] GetPreviousOfSustains(Note startNote)
-            {
-                List<Note> list = new List<Note>(6);
-
-                Note previous = startNote.previous;
-
-                const int allVisited = 31; // 0001 1111
-                int noteTypeVisited = 0;
-
-                while (previous != null && noteTypeVisited < allVisited)
-                {
-                    if (previous.fret_type == Note.Fret_Type.OPEN)
-                    {
-                        /*if (Globals.extendedSustainsEnabled)
-                        {
-                            list.Add(previous);
-                            return list.ToArray();
-                        }
-
-                        else */
-                        if (list.Count > 0)
-                            return list.ToArray();
-                        else
-                            return new Note[] { previous };
-                    }
-                    else if (previous.position < startNote.position)
-                    {
-                        switch (previous.fret_type)
-                        {
-                            case (Note.Fret_Type.GREEN):
-                                if ((noteTypeVisited & (1 << (int)Note.Fret_Type.GREEN)) == 0)
-                                {
-                                    list.Add(previous);
-                                    noteTypeVisited |= 1 << (int)Note.Fret_Type.GREEN;
-                                }
-                                break;
-                            case (Note.Fret_Type.RED):
-                                if ((noteTypeVisited & (1 << (int)Note.Fret_Type.RED)) == 0)
-                                {
-                                    list.Add(previous);
-                                    noteTypeVisited |= 1 << (int)Note.Fret_Type.RED;
-                                }
-                                break;
-                            case (Note.Fret_Type.YELLOW):
-                                if ((noteTypeVisited & (1 << (int)Note.Fret_Type.YELLOW)) == 0)
-                                {
-                                    list.Add(previous);
-                                    noteTypeVisited |= 1 << (int)Note.Fret_Type.YELLOW;
-                                }
-                                break;
-                            case (Note.Fret_Type.BLUE):
-                                if ((noteTypeVisited & (1 << (int)Note.Fret_Type.BLUE)) == 0)
-                                {
-                                    list.Add(previous);
-                                    noteTypeVisited |= 1 << (int)Note.Fret_Type.BLUE;
-                                }
-                                break;
-                            case (Note.Fret_Type.ORANGE):
-                                if ((noteTypeVisited & (1 << (int)Note.Fret_Type.ORANGE)) == 0)
-                                {
-                                    list.Add(previous);
-                                    noteTypeVisited |= 1 << (int)Note.Fret_Type.ORANGE;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-
-                    previous = previous.previous;
-                }
-
-                return list.ToArray();
-            }
-            /*
-            public ActionHistory.Modify CapSustain(Note cap)
-            {
-                if (cap == null)
-                    return null;
-
-                Note originalNote = (Note)this.Clone();
-
-                // Cap sustain length
-                if (cap.position <= position)
-                    sustain_length = 0;
-                else if (position + sustain_length > cap.position)        // Sustain extends beyond cap note 
-                {
-                    sustain_length = cap.position - position;
-                }
-
-                uint gapDis = (uint)(song.resolution * 4.0f / Globals.sustainGap);
-
-                if (Globals.sustainGapEnabled && sustain_length > 0 && (position + sustain_length > cap.position - gapDis))
-                {
-                    if ((int)(cap.position - gapDis - position) > 0)
-                        sustain_length = cap.position - gapDis - position;
-                    else
-                        sustain_length = 0;
-                }
-
-                if (originalNote.sustain_length != sustain_length)
-                    return new ActionHistory.Modify(originalNote, this);
-                else
-                    return null;
-            }
-
             public override void Delete(bool update = true)
             {
                 base.Delete(update);
-
-                // Update the previous note in the case of chords with 2 notes
-                if (previous != null && previous.controller)
-                    previous.controller.UpdateSongObject();
-                if (next != null && next.controller)
-                    next.controller.UpdateSongObject();
             }
 
+            public bool IsOpenNote()
+            {
+                if (chart.gameMode == Chart.GameMode.GHLGuitar)
+                    return ghlive_fret_type == GHLive_Fret_Type.OPEN;
+                else
+                    return fret_type == Fret_Type.OPEN;
+            }
+
+            /*
             public Note FindNextSameFretWithinSustainExtendedCheck()
             {
                 Note next = this.next;
 
                 while (next != null)
                 {
-                    if (!Globals.extendedSustainsEnabled)
+                    if (!GameSettings.extendedSustainsEnabled)
                     {
-                        if ((next.fret_type == Note.Fret_Type.OPEN || (position < next.position)) && position != next.position)
+                        if ((next.IsOpenNote() || (position < next.position)) && position != next.position)
                             return next;
-                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
-                        //return null;
                     }
                     else
                     {
-                        if ((fret_type != Fret_Type.OPEN && next.fret_type == Note.Fret_Type.OPEN && !Globals.drumMode) || (next.fret_type == fret_type))
+                        if ((!IsOpenNote() && next.IsOpenNote() && !(chart.gameMode == Chart.GameMode.Drums)) || (next.rawNote == rawNote))
                             return next;
-                        //else if (next.position >= note.position + note.sustain_length)      // Stop searching early
-                        //return null;
                     }
 
                     next = next.next;
@@ -525,7 +444,6 @@ namespace Moonscraper
 
                 // Cap the sustain
                 Note nextFret;
-
                 nextFret = FindNextSameFretWithinSustainExtendedCheck();
 
                 if (nextFret != null)
@@ -568,7 +486,7 @@ namespace Moonscraper
                         break;
 
                     case (Note_Type.Tap):
-                        if (fret_type != Fret_Type.OPEN)
+                        if (!IsOpenNote())
                             flags |= Note.Flags.TAP;
                         break;
 

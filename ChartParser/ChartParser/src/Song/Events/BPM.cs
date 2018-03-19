@@ -14,6 +14,7 @@ namespace Moonscraper
             /// Stored as the bpm value * 1000. For example, a bpm of 120.075 would be stored as 120075.
             /// </summary>
             public uint value;
+            public float? anchor = null;
 
             /// <summary>
             /// Basic constructor.
@@ -28,12 +29,18 @@ namespace Moonscraper
             public BPM(BPM _bpm) : base(_bpm.position)
             {
                 value = _bpm.value;
+                anchor = _bpm.anchor;
             }
 
             internal override string GetSaveString()
             {
                 //0 = B 140000
-                return Globals.TABSPACE + position + " = B " + value + Globals.LINE_ENDING;
+                string s = string.Empty;
+                if (anchor != null)
+                    s += Globals.TABSPACE + position + " = A " + (uint)(((double)anchor) * 1000000) + Globals.LINE_ENDING;
+                s += Globals.TABSPACE + position + " = B " + value + Globals.LINE_ENDING;
+
+                return s;
             }
 
             public float assignedTime = 0;

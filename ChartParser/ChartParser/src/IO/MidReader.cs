@@ -1,6 +1,9 @@
-﻿using System;
+﻿// Copyright (c) 2016-2017 Alexander Ong
+// See LICENSE in project root for license information.
+
+using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using NAudio.Midi;
 
 namespace Moonscraper
@@ -9,14 +12,20 @@ namespace Moonscraper
     {
         public static class MidReader
         {
+
             public static Song ReadMidi(string path)
             {
                 Song song = new Song();
                 string directory = System.IO.Path.GetDirectoryName(path);
-                song.musicSongName = directory + "\\song.ogg";
-                song.guitarSongName = directory + "\\guitar.ogg";
-                song.rhythmSongName = directory + "\\rhythm.ogg";
-                song.drumSongName = directory + "\\drums.ogg";
+
+                foreach (Song.AudioInstrument audio in Enum.GetValues(typeof(Song.AudioInstrument)))
+                {
+                    string audioFilepath = directory + "\\" + audio.ToString().ToLower() + ".ogg";
+                    Console.WriteLine(audioFilepath);
+                    song.SetAudioLocation(audio, audioFilepath);
+                }
+
+                //song.SetAudioLocation(Song.AudioInstrument.Song, directory + "\\song.ogg");
 
                 MidiFile midi;
 
@@ -39,11 +48,11 @@ namespace Moonscraper
                     var trackName = midi.Events[i][0] as TextEvent;
                     if (trackName == null)
                         continue;
-
+                    Console.WriteLine(trackName.Text);
                     switch (trackName.Text.ToLower())
                     {
                         case ("events"):
-                            ReadSongSections(midi.Events[i], song);
+                            ReadSongGlobalEvents(midi.Events[i], song);
                             break;
                         case ("part guitar"):
                             ReadNotes(midi.Events[i], song, Song.Instrument.Guitar);
@@ -53,16 +62,26 @@ namespace Moonscraper
                         case ("part bass"):
                             ReadNotes(midi.Events[i], song, Song.Instrument.Bass);
                             break;
+                        case ("part rhythm"):
+                            ReadNotes(midi.Events[i], song, Song.Instrument.Rhythm);
+                            break;
                         case ("part keys"):
                             ReadNotes(midi.Events[i], song, Song.Instrument.Keys);
                             break;
                         case ("part drums"):
                             ReadNotes(midi.Events[i], song, Song.Instrument.Drums);
                             break;
+                        case ("part guitar ghl"):
+                            ReadNotes(midi.Events[i], song, Song.Instrument.GHLiveGuitar);
+                            break;
+                        case ("part bass ghl"):
+                            ReadNotes(midi.Events[i], song, Song.Instrument.GHLiveBass);
+                            break;
                         case ("beat"):
                             //ReadTrack(midi.Events[i]);
                             break;
                         default:
+                            ReadNotes(midi.Events[i], song, Song.Instrument.Unrecognised);
                             break;
                     }
                 }
@@ -97,7 +116,7 @@ namespace Moonscraper
                     {
                         var tick = me.AbsoluteTime;
 
-                        song.Add(new TimeSignature((uint)tick, (uint)ts.Numerator, (uint)(Math.Pow(2, ts.Denominator))), false);
+                        song.Add(new TimeSignature((uint)tick, (uint)ts.Numerator, (uint)(System.Math.Pow(2, ts.Denominator))), false);
                         continue;
                     }
                     var tempo = me as TempoEvent;
@@ -116,12 +135,12 @@ namespace Moonscraper
                     }
                 }
 
-                song.updateArrays();
+                song.UpdateCache();
             }
 
-            private static void ReadSongSections(IList<MidiEvent> track, Song song)
+            private static void ReadSongGlobalEvents(IList<MidiEvent> track, Song song)
             {
-                for (int i = 0; i < track.Count; ++i)
+                for (int i = 1; i < track.Count; ++i)
                 {
                     var text = track[i] as TextEvent;
 
@@ -131,10 +150,12 @@ namespace Moonscraper
                             song.Add(new Section(text.Text.Substring(9, text.Text.Length - 10), (uint)text.AbsoluteTime), false);
                         else if (text.Text.Contains("[prc_"))       // No idea what this actually is
                             song.Add(new Section(text.Text.Substring(5, text.Text.Length - 6), (uint)text.AbsoluteTime), false);
+                        else
+                            song.Add(new Event(text.Text.Trim(new char[] { '[', ']' }), (uint)text.AbsoluteTime), false);
                     }
                 }
 
-                song.updateArrays();
+                song.UpdateCache();
             }
 
             private static void ReadNotes(IList<MidiEvent> track, Song song, Song.Instrument instrument)
@@ -142,7 +163,12 @@ namespace Moonscraper
                 List<NoteOnEvent> forceNotesList = new List<NoteOnEvent>();
                 List<SysexEvent> tapAndOpenEvents = new List<SysexEvent>();
 
-                int rbSustainFixLength = (int)(64 * song.resolution / Globals.STANDARD_BEAT_RESOLUTION);
+                Chart unrecognised = new Chart(song, Song.Instrument.Unrecognised);
+
+                if (instrument == Song.Instrument.Unrecognised)
+                    song.unrecognisedCharts.Add(unrecognised);
+
+                int rbSustainFixLength = (int)(64 * song.resolution / Song.STANDARD_BEAT_RESOLUTION);
 
                 // Load all the notes
                 for (int i = 0; i < track.Count; i++)
@@ -150,20 +176,40 @@ namespace Moonscraper
                     var text = track[i] as TextEvent;
                     if (text != null)
                     {
+                        if (i == 0)
+                        {
+                            if (instrument == Song.Instrument.Unrecognised)
+                                unrecognised.name = text.Text;
+                            continue;           // We don't want the first event because that is the name of the track
+                        }
+
                         var tick = (uint)text.AbsoluteTime;
                         var eventName = text.Text.Trim(new char[] { '[', ']' });
+                        ChartEvent chartEvent = new ChartEvent(tick, eventName);
 
-                        song.GetChart(instrument, Song.Difficulty.Expert).Add(new ChartEvent(tick, eventName));
-                        //Debug.Log(text.Text + " " + text.AbsoluteTime);
+                        if (instrument == Song.Instrument.Unrecognised)
+                            unrecognised.Add(chartEvent);
+                        else
+                            song.GetChart(instrument, Song.Difficulty.Expert).Add(chartEvent);
                     }
 
                     var note = track[i] as NoteOnEvent;
                     if (note != null && note.OffEvent != null)
                     {
+                        Song.Difficulty difficulty;
+
                         var tick = (uint)note.AbsoluteTime;
                         var sus = (uint)(note.OffEvent.AbsoluteTime - tick);
 
-                        Song.Difficulty difficulty;
+                        if (instrument == Song.Instrument.Unrecognised)
+                        {
+                            int rawNote = SelectRawNoteValue(note.NoteNumber);
+                            Note newNote = new Note(tick, Note.Fret_Type.GREEN, sus);
+                            newNote.rawNote = rawNote;
+                            //difficulty = SelectRawNoteDifficulty(note.NoteNumber);
+                            unrecognised.Add(newNote);
+                            continue;
+                        }
 
                         // Check if starpower event
                         if (note.NoteNumber == 116)
@@ -177,7 +223,10 @@ namespace Moonscraper
                         // Determine which difficulty we are manipulating
                         try
                         {
-                            difficulty = SelectNoteDifficulty(note.NoteNumber);
+                            if (instrument == Song.Instrument.GHLiveGuitar || instrument == Song.Instrument.GHLiveBass)
+                                difficulty = SelectGHLNoteDifficulty(note.NoteNumber);
+                            else
+                                difficulty = SelectNoteDifficulty(note.NoteNumber);
                         }
                         catch
                         {
@@ -204,57 +253,17 @@ namespace Moonscraper
                             }
                         }
 
-                        Note.Fret_Type fret;
+                        int fret;
 
                         if (sus <= rbSustainFixLength)
                             sus = 0;
 
-                        // Determine the fret type of the note
-                        switch (note.NoteNumber)
-                        {
-                            case 60:
-                            case 72:
-                            case 84:
-                            case 96: fret = Note.Fret_Type.GREEN; break;
-
-                            case 61:
-                            case 73:
-                            case 85:
-                            case 97: fret = Note.Fret_Type.RED; break;
-
-                            case 62:
-                            case 74:
-                            case 86:
-                            case 98: fret = Note.Fret_Type.YELLOW; break;
-
-                            case 63:
-                            case 75:
-                            case 87:
-                            case 99: fret = Note.Fret_Type.BLUE; break;
-
-                            case 64:
-                            case 76:
-                            case 88:
-                            case 100: fret = Note.Fret_Type.ORANGE; break;
-
-                            case 65:
-                            case 77:
-                            case 89:
-                            case 101:
-                                if (instrument == Song.Instrument.Drums)
-                                {
-                                    fret = Note.Fret_Type.OPEN;     // Gets converted to an orange note later on
-                                    break;
-                                }
-                                else
-                                    continue;
-                            default:
-                                Console.WriteLine("Unknown note: " + note.NoteNumber);
-                                continue;
-                        }
-
                         if (instrument == Song.Instrument.Drums)
-                            fret = Note.LoadDrumNoteToGuitarNote(fret);
+                            fret = (int)GetDrumFretType(note.NoteNumber);
+                        else if (instrument == Song.Instrument.GHLiveGuitar || instrument == Song.Instrument.GHLiveBass)
+                            fret = (int)GetGHLFretType(note.NoteNumber);
+                        else
+                            fret = (int)GetStandardFretType(note.NoteNumber);
 
                         // Add the note to the correct chart
                         song.GetChart(instrument, difficulty).Add(new Note(tick, fret, sus), false);
@@ -269,48 +278,30 @@ namespace Moonscraper
                 }
 
                 // Update all chart arrays
-                foreach (Song.Difficulty diff in System.Enum.GetValues(typeof(Song.Difficulty)))
-                    song.GetChart(instrument, diff).updateArrays();
-
-                // Apply forcing events
-                foreach (NoteOnEvent flagEvent in forceNotesList)
+                if (instrument != Song.Instrument.Unrecognised)
                 {
-                    uint tick = (uint)flagEvent.AbsoluteTime;
-                    uint endPos = (uint)(flagEvent.OffEvent.AbsoluteTime - tick);
-
-                    Song.Difficulty difficulty;
-
-                    // Determine which difficulty we are manipulating
-                    try
-                    {
-                        difficulty = SelectNoteDifficulty(flagEvent.NoteNumber);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    Chart chart = song.GetChart(instrument, difficulty);
-                    int index, length;
-                    SongObject.GetRange(chart.notes, tick, tick + endPos, out index, out length);
-
-                    for (int i = index; i < index + length; ++i)
-                    {
-                        // if NoteNumber is odd force hopo, if even force strum
-                        if (flagEvent.NoteNumber % 2 != 0)
-                            chart.notes[i].SetType(Note.Note_Type.Hopo);
-                        else
-                            chart.notes[i].SetType(Note.Note_Type.Strum);
-                    }
+                    foreach (Song.Difficulty diff in System.Enum.GetValues(typeof(Song.Difficulty)))
+                        song.GetChart(instrument, diff).UpdateCache();
                 }
+                else
+                    unrecognised.UpdateCache();
 
                 // Apply tap and open note events
-                System.Array difficultyValues = System.Enum.GetValues(typeof(Song.Difficulty));
-                Chart[] chartsOfInstrument = new Chart[difficultyValues.Length];
+                Chart[] chartsOfInstrument;
 
-                int difficultyCount = 0;
-                foreach (Song.Difficulty difficulty in difficultyValues)
-                    chartsOfInstrument[difficultyCount++] = song.GetChart(instrument, difficulty);
+                if (instrument == Song.Instrument.Unrecognised)
+                {
+                    chartsOfInstrument = new Chart[] { unrecognised };
+                }
+                else
+                {
+                    System.Array difficultyValues = System.Enum.GetValues(typeof(Song.Difficulty));
+                    chartsOfInstrument = new Chart[difficultyValues.Length];
+
+                    int difficultyCount = 0;
+                    foreach (Song.Difficulty difficulty in difficultyValues)
+                        chartsOfInstrument[difficultyCount++] = song.GetChart(instrument, difficulty);
+                }
 
                 for (int i = 0; i < tapAndOpenEvents.Count; ++i)
                 {
@@ -347,7 +338,7 @@ namespace Moonscraper
                         foreach (Chart chart in chartsOfInstrument)
                         {
                             int index, length;
-                            SongObject.GetRange(chart.notes, tick, tick + endPos, out index, out length);
+                            SongObjectHelper.GetRange(chart.notes, tick, tick + endPos, out index, out length);
                             for (int k = index; k < index + length; ++k)
                             {
                                 chart.notes[k].SetType(Note.Note_Type.Tap);
@@ -390,8 +381,12 @@ namespace Moonscraper
                         }
 
                         int index, length;
-                        Note[] notes = song.GetChart(instrument, difficulty).notes;
-                        SongObject.GetRange(notes, tick, tick + endPos, out index, out length);
+                        Note[] notes;
+                        if (instrument == Song.Instrument.Unrecognised)
+                            notes = unrecognised.notes;
+                        else
+                            notes = song.GetChart(instrument, difficulty).notes;
+                        SongObjectHelper.GetRange(notes, tick, tick + endPos, out index, out length);
                         for (int k = index; k < index + length; ++k)
                         {
                             notes[k].fret_type = Note.Fret_Type.OPEN;
@@ -400,7 +395,43 @@ namespace Moonscraper
                                 notes[k].fret_type = Note.LoadDrumNoteToGuitarNote(notes[k].fret_type);
                         }
                     }
+                }
 
+                // Apply forcing events
+                foreach (NoteOnEvent flagEvent in forceNotesList)
+                {
+                    uint tick = (uint)flagEvent.AbsoluteTime;
+                    uint endPos = (uint)(flagEvent.OffEvent.AbsoluteTime - tick);
+
+                    Song.Difficulty difficulty;
+
+                    // Determine which difficulty we are manipulating
+                    try
+                    {
+                        difficulty = SelectNoteDifficulty(flagEvent.NoteNumber);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    Chart chart;
+                    if (instrument != Song.Instrument.Unrecognised)
+                        chart = song.GetChart(instrument, difficulty);
+                    else
+                        chart = unrecognised;
+
+                    int index, length;
+                    SongObjectHelper.GetRange(chart.notes, tick, tick + endPos, out index, out length);
+
+                    for (int i = index; i < index + length; ++i)
+                    {
+                        // if NoteNumber is odd force hopo, if even force strum
+                        if (flagEvent.NoteNumber % 2 != 0)
+                            chart.notes[i].SetType(Note.Note_Type.Hopo);
+                        else
+                            chart.notes[i].SetType(Note.Note_Type.Strum);
+                    }
                 }
             }
 
@@ -416,6 +447,120 @@ namespace Moonscraper
                     return Song.Difficulty.Expert;
                 else
                     throw new System.ArgumentOutOfRangeException("Note number outside of note range");
+            }
+
+            static Song.Difficulty SelectGHLNoteDifficulty(int noteNumber)
+            {
+                if (noteNumber >= 94)
+                    return Song.Difficulty.Expert;
+                else if (noteNumber >= 82)
+                    return Song.Difficulty.Hard;
+                else if (noteNumber >= 70)
+                    return Song.Difficulty.Medium;
+                else
+                    return Song.Difficulty.Easy;
+            }
+
+
+            static Song.Difficulty SelectRawNoteDifficulty(int noteNumber)
+            {
+                if (noteNumber >= 96)
+                    return Song.Difficulty.Expert;
+                else if (noteNumber >= 84)
+                    return Song.Difficulty.Hard;
+                else if (noteNumber >= 72)
+                    return Song.Difficulty.Medium;
+                else
+                    return Song.Difficulty.Easy;
+            }
+
+            static int SelectRawNoteValue(int noteNumber)
+            {
+                // Generally starts at 60, every 12 notes is a change is difficulty
+                //return noteNumber % 12;
+                return noteNumber;
+            }
+
+            static Note.Fret_Type GetStandardFretType(int noteNumber)
+            {
+                Note.Fret_Type fret;
+                int difficultyLessNote = noteNumber % 12;
+
+                // Determine the fret type of the note
+                switch (difficultyLessNote)
+                {
+                    case 0: fret = Note.Fret_Type.GREEN; break;
+
+                    case 1: fret = Note.Fret_Type.RED; break;
+
+                    case 2: fret = Note.Fret_Type.YELLOW; break;
+
+                    case 3: fret = Note.Fret_Type.BLUE; break;
+
+                    case 4: fret = Note.Fret_Type.ORANGE; break;
+
+                    // 5 is forced
+                    default:
+                        fret = Note.Fret_Type.GREEN; break;
+                }
+
+                return fret;
+            }
+
+            static Note.Drum_Fret_Type GetDrumFretType(int noteNumber)
+            {
+                Note.Drum_Fret_Type fret;
+                int difficultyLessNote = noteNumber % 12;
+
+                // Determine the fret type of the note
+                switch (difficultyLessNote)
+                {
+                    case 0: fret = Note.Drum_Fret_Type.KICK; break;
+
+                    case 1: fret = Note.Drum_Fret_Type.RED; break;
+
+                    case 2: fret = Note.Drum_Fret_Type.YELLOW; break;
+
+                    case 3: fret = Note.Drum_Fret_Type.BLUE; break;
+
+                    case 4: fret = Note.Drum_Fret_Type.ORANGE; break;
+
+                    case 5: fret = Note.Drum_Fret_Type.GREEN; break;
+
+                    default:
+                        fret = Note.Drum_Fret_Type.RED; break;
+                }
+
+                return fret;
+            }
+
+            static Note.GHLive_Fret_Type GetGHLFretType(int noteNumber)
+            {
+                Note.GHLive_Fret_Type fret;
+                int difficultyLessNote = (noteNumber + 2) % 12;
+
+                // Determine the fret type of the note
+                switch (difficultyLessNote)
+                {
+                    case 0: fret = Note.GHLive_Fret_Type.OPEN; break;
+
+                    case 1: fret = Note.GHLive_Fret_Type.WHITE_1; break;
+
+                    case 2: fret = Note.GHLive_Fret_Type.WHITE_2; break;
+
+                    case 3: fret = Note.GHLive_Fret_Type.WHITE_3; break;
+
+                    case 4: fret = Note.GHLive_Fret_Type.BLACK_1; break;
+
+                    case 5: fret = Note.GHLive_Fret_Type.BLACK_2; break;
+
+                    case 6: fret = Note.GHLive_Fret_Type.BLACK_3; break;
+
+                    default:
+                        fret = Note.GHLive_Fret_Type.BLACK_1; break;
+                }
+
+                return fret;
             }
         }
     }

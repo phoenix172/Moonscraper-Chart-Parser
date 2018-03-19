@@ -1,4 +1,9 @@
-﻿using System.Collections.Generic;
+﻿// Copyright (c) 2016-2017 Alexander Ong
+// See LICENSE in project root for license information.
+
+//#define TIMING_DEBUG
+
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
 
@@ -10,6 +15,9 @@ namespace Moonscraper
         {
             Song _song;
             List<ChartObject> _chartObjects;
+            int _note_count;
+            GameMode _gameMode;
+            public string name = string.Empty;
 
             /// <summary>
             /// Read only list of notes.
@@ -27,29 +35,31 @@ namespace Moonscraper
             /// The song this chart is connected to.
             /// </summary>
             public Song song { get { return _song; } }
+            /// <summary>
+            /// The game mode the chart is designed for
+            /// </summary>
+            public GameMode gameMode { get { return _gameMode; } }
 
             /// <summary>
             /// Read only list containing all chart notes, starpower and events.
             /// </summary>
             public ChartObject[] chartObjects { get { return _chartObjects.ToArray(); } }
 
-            int _note_count;
             /// <summary>
             /// The total amount of notes in the chart, counting chord (notes sharing the same tick position) as a single note.
             /// </summary>
             public int note_count { get { return _note_count; } }
-
-            public string name = string.Empty;
 
             /// <summary>
             /// Creates a new chart object.
             /// </summary>
             /// <param name="song">The song to associate this chart with.</param>
             /// <param name="name">The name of the chart (easy single, expert double guitar, etc.</param>
-            public Chart(Song song, string name = "")
+            public Chart(Song song, GameMode gameMode, string name = "")
             {
                 _song = song;
                 _chartObjects = new List<ChartObject>();
+                _gameMode = gameMode;
 
                 notes = new Note[0];
                 starPower = new Starpower[0];
@@ -60,10 +70,26 @@ namespace Moonscraper
                 this.name = name;
             }
 
+            public Chart(Song song, Song.Instrument instrument, string name = "") : this(song, Song.InstumentToChartGameMode(instrument), name)
+            {
+            }
+
+            public Chart(Chart chart, Song song)
+            {
+                _song = song;
+                name = chart.name;
+                _gameMode = chart.gameMode;
+
+                _chartObjects = new List<ChartObject>();
+                _chartObjects.AddRange(chart._chartObjects);
+
+                this.name = chart.name;
+            }
+
             /// <summary>
             /// Updates all read-only values and the total note count.
             /// </summary>
-            public void updateArrays()
+            public void UpdateCache()
             {
                 notes = _chartObjects.OfType<Note>().ToArray();
                 starPower = _chartObjects.OfType<Starpower>().ToArray();
@@ -94,6 +120,17 @@ namespace Moonscraper
                     return 0;
             }
 
+            public void SetCapacity(int size)
+            {
+                if (size > _chartObjects.Capacity)
+                    _chartObjects.Capacity = size;
+            }
+
+            public void Clear()
+            {
+                _chartObjects.Clear();
+            }
+
             /// <summary>
             /// Adds a series of chart objects (note, starpower and/or chart events) into the chart.
             /// </summary>
@@ -105,8 +142,7 @@ namespace Moonscraper
                     Add(chartObject, false);
                 }
 
-                updateArrays();
-               // ChartEditor.editOccurred = true;
+                UpdateCache();
             }
 
             /// <summary>
@@ -120,12 +156,10 @@ namespace Moonscraper
                 chartObject.chart = this;
                 chartObject.song = this._song;
 
-                int pos = SongObject.Insert(chartObject, _chartObjects);
+                int pos = SongObjectHelper.Insert(chartObject, _chartObjects);
 
                 if (update)
-                    updateArrays();
-
-                //ChartEditor.editOccurred = true;
+                    UpdateCache();
 
                 return pos;
             }
@@ -141,8 +175,7 @@ namespace Moonscraper
                     Remove(chartObject, false);
                 }
 
-                updateArrays();
-                //ChartEditor.editOccurred = true;
+                UpdateCache();
             }
 
             /// <summary>
@@ -154,176 +187,28 @@ namespace Moonscraper
             /// <returns>Returns whether the removal was successful or not (item may not have been found if false).</returns>
             public bool Remove(ChartObject chartObject, bool update = true)
             {
-                bool success = SongObject.Remove(chartObject, _chartObjects);
+                bool success = SongObjectHelper.Remove(chartObject, _chartObjects);
 
                 if (success)
                 {
                     chartObject.chart = null;
                     chartObject.song = null;
-                    //ChartEditor.editOccurred = true;
                 }
 
                 if (update)
-                    updateArrays();
+                    UpdateCache();
 
                 return success;
             }
 
-            public void Load(List<string> data, Song.Instrument instrument = Song.Instrument.Guitar)
+            public enum GameMode
             {
-                Load(data.ToArray(), instrument);
-            }
+                Guitar,
+                Drums,
+                GHLGuitar,
 
-            public void Load(string[] data, Song.Instrument instrument = Song.Instrument.Guitar)
-            {
-#if TIMING_DEBUG
-        float time = Time.realtimeSinceStartup;
-#endif
-                Regex noteRegex = new Regex(@"^\s*\d+ = N \d \d+$");            // 48 = N 2 0
-                Regex starPowerRegex = new Regex(@"^\s*\d+ = S 2 \d+$");        // 768 = S 2 768
-                Regex noteEventRegex = new Regex(@"^\s*\d+ = E \S");            // 1728 = E T
-
-                List<string> flags = new List<string>();
-
-                _chartObjects.Capacity = data.Length;
-
-                try
-                {
-                    // Load notes, collect flags
-                    foreach (string line in data)
-                    {
-                        if (noteRegex.IsMatch(line))
-                        {
-                            // Split string to get note information
-                            string[] digits = Regex.Split(line.Trim(), @"\D+");
-
-                            if (digits.Length == 3)
-                            {
-                                uint position = uint.Parse(digits[0]);
-                                int fret_type = int.Parse(digits[1]);
-                                uint length = uint.Parse(digits[2]);
-
-                                switch (fret_type)
-                                {
-                                    case (0):
-                                    case (1):
-                                    case (2):
-                                    case (3):
-                                    case (4):
-                                        // Add note to the data
-                                        Note newStandardNote = new Note(position, (Note.Fret_Type)fret_type, length);
-                                        if (instrument == Song.Instrument.Drums)
-                                            newStandardNote.fret_type = Note.LoadDrumNoteToGuitarNote(newStandardNote.fret_type);
-                                        Add(newStandardNote, false);
-                                        break;
-                                    case (5):
-                                        if (instrument == Song.Instrument.Drums)
-                                        {
-                                            Note drumNote = new Note(position, Note.Fret_Type.ORANGE, length);
-                                            Add(drumNote, false);
-                                            break;
-                                        }
-                                        else
-                                            goto case (6);
-                                    case (6):
-                                        flags.Add(line);
-                                        break;
-                                    case (7):
-                                        Note newOpenNote = new Note(position, Note.Fret_Type.OPEN, length);
-                                        Add(newOpenNote, false);
-                                        break;
-                                    default:
-                                        break;
-                                }
-                            }
-                        }
-
-                        else if (starPowerRegex.IsMatch(line))
-                        {
-                            string[] digits = Regex.Split(line.Trim(), @"\D+");
-
-                            uint position = uint.Parse(digits[0]);
-                            uint length = uint.Parse(digits[2]);
-
-                            Add(new Starpower(position, length), false);
-                        }
-
-                        else if (noteEventRegex.IsMatch(line))
-                        {
-                            string[] strings = Regex.Split(line.Trim(), @"\s+");
-
-                            uint position = uint.Parse(strings[0]);
-                            string eventName = strings[3];
-
-                            Add(new ChartEvent(position, eventName), false);
-                        }
-                    }
-                    updateArrays();
-
-                    // Load flags
-                    foreach (string line in flags)
-                    {
-                        if (noteRegex.IsMatch(line))
-                        {
-                            // Split string to get note information
-                            string[] digits = Regex.Split(line.Trim(), @"\D+");
-
-                            if (digits.Length == 3)
-                            {
-                                uint position = uint.Parse(digits[0]);
-                                int fret_type = int.Parse(digits[1]);
-
-                                Note[] notesToAddFlagTo = SongObject.FindObjectsAtPosition(position, notes);
-                                switch (fret_type)
-                                {
-                                    case (5):
-                                        Note.groupAddFlags(notesToAddFlagTo, Note.Flags.FORCED);
-                                        break;
-                                    case (6):
-                                        Note.groupAddFlags(notesToAddFlagTo, Note.Flags.TAP);
-                                        break;
-                                    default:
-                                        break;
-                                }
-                            }
-                        }
-                    }
-#if TIMING_DEBUG
-            Debug.Log("Chart load time: " + (Time.realtimeSinceStartup - time));
-#endif
-                }
-                catch (System.Exception e)
-                {
-                    // Bad load, most likely a parsing error
-                    System.Console.WriteLine("Error: " + e.Message);
-                    //Debug.LogError(e.Message);
-                    _chartObjects.Clear();
-                }
-            }
-
-            public string GetChartString(bool forced = true)
-            {
-                string chart = string.Empty;
-                ChartObject[] chartObjects = _chartObjects.ToArray();
-
-                for (int i = 0; i < chartObjects.Length; ++i)
-                {
-                    chart += chartObjects[i].GetSaveString();
-
-                    if (forced && chartObjects[i].GetType() == typeof(Note))
-                    {
-                        // if the next note is not at the same position, add flags into the string
-                        Note currentNote = (Note)chartObjects[i];
-
-                        // Only add the flags of the last note at that position
-                        if (currentNote.next == null || (currentNote.next != null && currentNote.next.position != currentNote.position))
-                            chart += currentNote.GetFlagsSaveString();
-                    }
-                }
-
-                return chart;
+                Unrecognised,
             }
         }
-
     }
 }

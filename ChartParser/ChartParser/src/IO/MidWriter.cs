@@ -1,7 +1,12 @@
-﻿using System;
+﻿// Copyright (c) 2016-2017 Alexander Ong
+// See LICENSE in project root for license information.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
+using MiscUtil.IO;
 using MiscUtil.Conversion;
+using NAudio.Midi;
 
 namespace Moonscraper
 {
@@ -14,8 +19,21 @@ namespace Moonscraper
             const string EVENTS_TRACK = "EVENTS";           // Sections
             const string GUITAR_TRACK = "PART GUITAR";
             const string BASS_TRACK = "PART BASS";
+            const string RHYTHM_TRACK = "PART RHYTHM";
             const string KEYS_TRACK = "PART KEYS";
             const string DRUMS_TRACK = "PART DRUMS";
+            const string GHL_GUITAR_TRACK = "PART GUITAR GHL";
+            const string GHL_BASS_TRACK = "PART BASS GHL";
+
+            const byte ON_EVENT = 0x91;         // Note on channel 1
+            const byte OFF_EVENT = 0x81;
+            const byte VELOCITY = 0x64;         // 100
+            const byte STARPOWER_NOTE = 0x74;   // 116
+
+            const byte SYSEX_START = 0xF0;
+            const byte SYSEX_END = 0xF7;
+            const byte SYSEX_ON = 0x01;
+            const byte SYSEX_OFF = 0x00;
 
             static readonly byte[] END_OF_TRACK = new byte[] { 0, 0xFF, 0x2F, 0x00 };
 
@@ -26,7 +44,7 @@ namespace Moonscraper
                 byte[] track_sync = MakeTrack(GetSyncBytes(song, exportOptions), song.name);
 
                 uint end;
-                byte[] track_events = MakeTrack(GetSectionBytes(song, exportOptions, out end), EVENTS_TRACK);
+                byte[] track_events = MakeTrack(GetEventBytes(song, exportOptions, out end), EVENTS_TRACK);
                 if (track_events.Length > 0)
                     track_count++;
 
@@ -42,6 +60,10 @@ namespace Moonscraper
                 if (track_bass.Length > 0)
                     track_count++;
 
+                byte[] track_rhythm = GetInstrumentBytes(song, Song.Instrument.Rhythm, exportOptions);
+                if (track_rhythm.Length > 0)
+                    track_count++;
+
                 byte[] track_keys = GetInstrumentBytes(song, Song.Instrument.Keys, exportOptions);
                 if (track_keys.Length > 0)
                     track_count++;
@@ -49,6 +71,21 @@ namespace Moonscraper
                 byte[] track_drums = GetInstrumentBytes(song, Song.Instrument.Drums, exportOptions);
                 if (track_drums.Length > 0)
                     track_count++;
+
+                byte[] track_ghl_guitar = GetInstrumentBytes(song, Song.Instrument.GHLiveGuitar, exportOptions);
+                if (track_ghl_guitar.Length > 0)
+                    track_count++;
+
+                byte[] track_ghl_bass = GetInstrumentBytes(song, Song.Instrument.GHLiveBass, exportOptions);
+                if (track_ghl_bass.Length > 0)
+                    track_count++;
+
+                byte[][] unrecognised_tracks = new byte[song.unrecognisedCharts.Count][];
+                for (int i = 0; i < unrecognised_tracks.Length; ++i)
+                {
+                    unrecognised_tracks[i] = GetUnrecognisedChartBytes(song.unrecognisedCharts[i], exportOptions);
+                    track_count++;
+                }
 
                 byte[] header = GetMidiHeader(1, track_count, (short)(exportOptions.targetResolution));
 
@@ -66,11 +103,26 @@ namespace Moonscraper
                 if (track_bass.Length > 0)
                     bw.Write(MakeTrack(track_bass, BASS_TRACK));
 
+                if (track_rhythm.Length > 0)
+                    bw.Write(MakeTrack(track_rhythm, RHYTHM_TRACK));
+
                 if (track_keys.Length > 0)
                     bw.Write(MakeTrack(track_keys, KEYS_TRACK));
 
                 if (track_drums.Length > 0)
                     bw.Write(MakeTrack(track_drums, DRUMS_TRACK));
+
+                if (track_ghl_guitar.Length > 0)
+                    bw.Write(MakeTrack(track_ghl_guitar, GHL_GUITAR_TRACK));
+
+                if (track_ghl_bass.Length > 0)
+                    bw.Write(MakeTrack(track_ghl_guitar, GHL_BASS_TRACK));
+
+                for (int i = 0; i < unrecognised_tracks.Length; ++i)
+                {
+                    if (unrecognised_tracks[i].Length > 0)
+                        bw.Write(MakeTrack(unrecognised_tracks[i], song.unrecognisedCharts[i].name));
+                }
 
                 bw.Close();
                 file.Close();
@@ -96,7 +148,7 @@ namespace Moonscraper
                     if (i > 0)
                         deltaTime -= song.syncTrack[i - 1].position;
 
-                    deltaTime = (uint)Math.Round(deltaTime * resolutionScaleRatio);
+                    deltaTime = (uint)System.Math.Round(deltaTime * resolutionScaleRatio);
 
                     if (i == 0)
                         deltaTime += exportOptions.tickOffset;
@@ -113,31 +165,34 @@ namespace Moonscraper
                 return syncTrackBytes.ToArray();
             }
 
-            static byte[] GetSectionBytes(Song song, ExportOptions exportOptions, out uint end)
+            static byte[] GetEventBytes(Song song, ExportOptions exportOptions, out uint end)
             {
-                List<byte> sectionBytes = new List<byte>();
+                List<byte> eventBytes = new List<byte>();
 
                 const string section_id = "section ";     // "section " is rb2 and former, "prc_" is rb3
 
-                sectionBytes.AddRange(TimedEvent(0, MetaTextEvent(TEXT_EVENT, "[music_start]")));
+                //eventBytes.AddRange(TimedEvent(0, MetaTextEvent(TEXT_EVENT, "[music_start]")));
 
                 uint deltaTickSum = 0;
                 float resolutionScaleRatio = song.ResolutionScaleRatio(exportOptions.targetResolution);
 
-                for (int i = 0; i < song.sections.Length; ++i)
+                for (int i = 0; i < song.eventsAndSections.Length; ++i)
                 {
-                    uint deltaTime = song.sections[i].position;
+                    uint deltaTime = song.eventsAndSections[i].position;
                     if (i > 0)
-                        deltaTime -= song.sections[i - 1].position;
+                        deltaTime -= song.eventsAndSections[i - 1].position;
 
-                    deltaTime = (uint)Math.Round(deltaTime * resolutionScaleRatio);
+                    deltaTime = (uint)System.Math.Round(deltaTime * resolutionScaleRatio);
 
                     if (i == 0)
                         deltaTime += exportOptions.tickOffset;
 
                     deltaTickSum += deltaTime;
 
-                    sectionBytes.AddRange(TimedEvent(deltaTime, MetaTextEvent(TEXT_EVENT, "[" + section_id + song.sections[i].title + "]")));
+                    if (song.eventsAndSections[i] as Section != null)
+                        eventBytes.AddRange(TimedEvent(deltaTime, MetaTextEvent(TEXT_EVENT, "[" + section_id + song.eventsAndSections[i].title + "]")));
+                    else
+                        eventBytes.AddRange(TimedEvent(deltaTime, MetaTextEvent(TEXT_EVENT, "[" + song.eventsAndSections[i].title + "]")));
                 }
 
                 uint music_end = song.TimeToChartPosition(song.length + exportOptions.tickOffset, song.resolution * resolutionScaleRatio, false);
@@ -150,10 +205,10 @@ namespace Moonscraper
                 end = music_end;
 
                 // Add music_end and end text events.
-                sectionBytes.AddRange(TimedEvent(music_end, MetaTextEvent(TEXT_EVENT, "[music_end]")));
-                sectionBytes.AddRange(TimedEvent(0, MetaTextEvent(TEXT_EVENT, "[end]")));
+                //eventBytes.AddRange(TimedEvent(music_end, MetaTextEvent(TEXT_EVENT, "[music_end]")));
+                //eventBytes.AddRange(TimedEvent(0, MetaTextEvent(TEXT_EVENT, "[end]")));
 
-                return sectionBytes.ToArray();
+                return eventBytes.ToArray();
             }
 
             static byte[] GetInstrumentBytes(Song song, Song.Instrument instrument, ExportOptions exportOptions)
@@ -173,6 +228,11 @@ namespace Moonscraper
                 //SortableBytes[] sortedEvents = new SortableBytes[easyBytes.Length + mediumBytes.Length + hardBytes.Length + expertBytes.Length];//byteEvents.ToArray();
                 //SortableBytes.Sort(sortedEvents);
 
+                return SortableBytesToTimedEventBytes(sortedEvents, song, exportOptions);
+            }
+
+            static byte[] SortableBytesToTimedEventBytes(SortableBytes[] sortedEvents, Song song, ExportOptions exportOptions)
+            {
                 List<byte> bytes = new List<byte>();
                 float resolutionScaleRatio = song.ResolutionScaleRatio(exportOptions.targetResolution);
 
@@ -182,7 +242,7 @@ namespace Moonscraper
                     if (i > 0)
                         deltaTime -= sortedEvents[i - 1].position;
 
-                    deltaTime = (uint)Math.Round(deltaTime * resolutionScaleRatio);
+                    deltaTime = (uint)System.Math.Round(deltaTime * resolutionScaleRatio);
 
                     if (i == 0)
                         deltaTime += exportOptions.tickOffset;
@@ -225,15 +285,6 @@ namespace Moonscraper
                 }
 
                 List<SortableBytes> eventList = new List<SortableBytes>();
-                const byte ON_EVENT = 0x91;         // Note on channel 1
-                const byte OFF_EVENT = 0x81;
-                const byte VELOCITY = 0x64;         // 100
-                const byte STARPOWER_NOTE = 0x74;   // 116
-
-                const byte SYSEX_START = 0xF0;
-                const byte SYSEX_END = 0xF7;
-                const byte SYSEX_ON = 0x01;
-                const byte SYSEX_OFF = 0x00;
 
                 del InsertionSort = (sortableByte) =>
                 {
@@ -254,62 +305,14 @@ namespace Moonscraper
 
                     if (note != null)
                     {
-                        Note.Fret_Type fret_type = note.fret_type;
-                        if (instrument == Song.Instrument.Drums)
-                            fret_type = Note.SaveGuitarNoteToDrumNote(fret_type);
-
-                        int difficultyNumber;
                         int noteNumber;
+                        bool ghlTrack = (instrument == Song.Instrument.GHLiveGuitar || instrument == Song.Instrument.GHLiveBass);
+                        if (ghlTrack)
+                            noteNumber = GetGHLNoteNumber(note, instrument, difficulty);
+                        else
+                            noteNumber = GetStandardNoteNumber(note, instrument, difficulty);
 
-                        switch (difficulty)
-                        {
-                            case (Song.Difficulty.Easy):
-                                difficultyNumber = 60;
-                                break;
-                            case (Song.Difficulty.Medium):
-                                difficultyNumber = 72;
-                                break;
-                            case (Song.Difficulty.Hard):
-                                difficultyNumber = 84;
-                                break;
-                            case (Song.Difficulty.Expert):
-                                difficultyNumber = 96;
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        switch (fret_type)
-                        {
-                            case (Note.Fret_Type.OPEN):     // Open note highlighted as an SysEx event. Use green as default.
-                                if (instrument == Song.Instrument.Drums)
-                                {
-                                    noteNumber = difficultyNumber + 5;
-                                    break;
-                                }
-                                else
-                                    goto case Note.Fret_Type.GREEN;
-                            case (Note.Fret_Type.GREEN):
-                                noteNumber = difficultyNumber + 0;
-                                break;
-                            case (Note.Fret_Type.RED):
-                                noteNumber = difficultyNumber + 1;
-                                break;
-                            case (Note.Fret_Type.YELLOW):
-                                noteNumber = difficultyNumber + 2;
-                                break;
-                            case (Note.Fret_Type.BLUE):
-                                noteNumber = difficultyNumber + 3;
-                                break;
-                            case (Note.Fret_Type.ORANGE):
-                                noteNumber = difficultyNumber + 4;
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        onEvent = new SortableBytes(note.position, new byte[] { ON_EVENT, (byte)noteNumber, VELOCITY });
-                        offEvent = new SortableBytes(note.position + note.sustain_length, new byte[] { OFF_EVENT, (byte)noteNumber, VELOCITY });
+                        GetNoteNumberBytes(noteNumber, note, out onEvent, out offEvent);
 
                         if (exportOptions.forced)
                         {
@@ -318,6 +321,7 @@ namespace Moonscraper
                             {
                                 // Add a note
                                 int forcedNoteNumber;
+                                int difficultyNumber = LookupStandardDifficultyNumber(difficulty);
 
                                 if (note.type == Note.Note_Type.Hopo)
                                     forcedNoteNumber = difficultyNumber + 5;
@@ -331,12 +335,13 @@ namespace Moonscraper
                                 InsertionSort(forceOffEvent);
                             }
 
+                            int openNote = ghlTrack ? (int)Note.GHLive_Fret_Type.OPEN : (int)Note.Fret_Type.OPEN;
                             // Add tap sysex events
-                            if (difficulty == Song.Difficulty.Expert && note.fret_type != Note.Fret_Type.OPEN && (note.flags & Note.Flags.TAP) != 0 && (note.previous == null || (note.previous.flags & Note.Flags.TAP) == 0))  // This note is a tap while the previous one isn't as we're creating a range
+                            if (difficulty == Song.Difficulty.Expert && note.rawNote != openNote && (note.flags & Note.Flags.TAP) != 0 && (note.previous == null || (note.previous.flags & Note.Flags.TAP) == 0))  // This note is a tap while the previous one isn't as we're creating a range
                             {
                                 // Find the next non-tap note
                                 Note nextNonTap = note;
-                                while (nextNonTap.next != null && nextNonTap.fret_type != Note.Fret_Type.OPEN && (nextNonTap.next.flags & Note.Flags.TAP) != 0)
+                                while (nextNonTap.next != null && nextNonTap.rawNote != openNote && (nextNonTap.next.flags & Note.Flags.TAP) != 0)
                                     nextNonTap = nextNonTap.next;
 
                                 // Tap event = 08-50-53-00-00-FF-04-01, end with 01 for On, 00 for Off
@@ -351,8 +356,8 @@ namespace Moonscraper
                             }
                         }
 
-                        if (difficulty == Song.Difficulty.Expert && note.fret_type == Note.Fret_Type.OPEN && (note.previous == null || (note.previous.fret_type != Note.Fret_Type.OPEN))
-                            && instrument != Song.Instrument.Drums)
+                        if (instrument != Song.Instrument.Drums && instrument != Song.Instrument.GHLiveGuitar && instrument != Song.Instrument.GHLiveBass &&
+                            difficulty == Song.Difficulty.Expert && note.fret_type == Note.Fret_Type.OPEN && (note.previous == null || (note.previous.fret_type != Note.Fret_Type.OPEN)))
                         {
                             // Find the next non-open note
                             Note nextNonOpen = note;
@@ -392,32 +397,71 @@ namespace Moonscraper
 
                     Starpower sp = chartObject as Starpower;
                     if (sp != null && difficulty == Song.Difficulty.Expert)     // Starpower cannot be split up between charts in a midi file
-                    {
-                        onEvent = new SortableBytes(sp.position, new byte[] { ON_EVENT, STARPOWER_NOTE, VELOCITY });
-                        offEvent = new SortableBytes(sp.position + sp.length, new byte[] { OFF_EVENT, STARPOWER_NOTE, VELOCITY });
-                    }
+                        GetStarpowerBytes(sp, out onEvent, out offEvent);
 
                     ChartEvent chartEvent = chartObject as ChartEvent;
                     if (chartEvent != null && difficulty == Song.Difficulty.Expert)     // Text events cannot be split up in the file
-                    {
-                        byte[] textEvent = MetaTextEvent(TEXT_EVENT, chartEvent.eventName);
-                        InsertionSort(new SortableBytes(chartEvent.position, textEvent));
-                    }
+                        InsertionSort(GetChartEventBytes(chartEvent));
 
                     if (onEvent != null && offEvent != null)
                     {
                         InsertionSort(onEvent);
-                        //eventList.Add(onEvent);
 
                         if (offEvent.position == onEvent.position)
                             ++offEvent.position;
 
                         InsertionSort(offEvent);
-                        //eventList.Add(offEvent);
                     }
                 }
 
                 return eventList.ToArray();
+            }
+
+            static byte[] GetUnrecognisedChartBytes(Chart chart, ExportOptions exportOptions)
+            {
+                List<SortableBytes> eventList = new List<SortableBytes>();
+                del InsertionSort = (sortableByte) =>
+                {
+                    int index = eventList.Count - 1;
+
+                    while (index >= 0 && sortableByte.position < eventList[index].position)
+                        --index;
+
+                    eventList.Insert(index + 1, sortableByte);
+                };
+
+                foreach (ChartObject chartObject in chart.chartObjects)
+                {
+                    SortableBytes onEvent = null;
+                    SortableBytes offEvent = null;
+
+                    Note note = chartObject as Note;
+                    if (note != null)
+                        GetUnrecognisedChartNoteBytes(note, out onEvent, out offEvent);
+
+                    Starpower sp = chartObject as Starpower;
+                    if (sp != null)     // Starpower cannot be split up between charts in a midi file
+                        GetStarpowerBytes(sp, out onEvent, out offEvent);
+
+                    ChartEvent chartEvent = chartObject as ChartEvent;
+                    if (chartEvent != null)     // Text events cannot be split up in the file
+                    {
+                        SortableBytes bytes = GetChartEventBytes(chartEvent);
+                        InsertionSort(bytes);
+                    }
+
+                    if (onEvent != null && offEvent != null)
+                    {
+                        InsertionSort(onEvent);
+
+                        if (offEvent.position == onEvent.position)
+                            ++offEvent.position;
+
+                        InsertionSort(offEvent);
+                    }
+                }
+
+                return SortableBytesToTimedEventBytes(eventList.ToArray(), chart.song, exportOptions);
             }
 
             static byte[] GetMidiHeader(short fileFormat, short trackCount, short resolution)
@@ -508,13 +552,12 @@ namespace Moonscraper
                     throw new Exception("Text cannot be longer than 255 characters");
 
                 char[] chars = text.ToCharArray();
-                int byteLength = chars.Length;
-
-                byte[] bytes = new byte[3 + byteLength];       // FF xx nn then whatever data
 
                 byte[] header_event = EndianBitConverter.Big.GetBytes((short)(0xFF00 | (short)m_event));                // FF xx
-                byte[] header_byte_length = EndianBitConverter.Big.GetBytes((sbyte)byteLength);    // nn
                 byte[] header_text = System.Text.Encoding.UTF8.GetBytes(chars);            // dd
+                byte[] header_byte_length = EndianBitConverter.Big.GetBytes((sbyte)(header_text.Length));    // nn
+
+                byte[] bytes = new byte[3 + (header_text.Length)];       // FF xx nn then whatever data
 
                 int offset = 0;
                 Array.Copy(header_event, 0, bytes, offset, sizeof(short));
@@ -538,7 +581,7 @@ namespace Moonscraper
                 bytes[2] = 0x03;            // Size
 
                 // Microseconds per quarter note for the last 3 bytes stored as a 24-bit binary
-                byte[] microPerSec = EndianBitConverter.Big.GetBytes((uint)(6.0f * Math.Pow(10, 10) / bpm.value));
+                byte[] microPerSec = EndianBitConverter.Big.GetBytes((uint)(6.0f * System.Math.Pow(10, 10) / bpm.value));
 
                 Array.Copy(microPerSec, 1, bytes, 3, 3);        // Offset of 1 and length of 3 cause 24 bit
 
@@ -554,7 +597,7 @@ namespace Moonscraper
                 bytes[1] = TIME_SIGNATURE_EVENT;
                 bytes[2] = 0x04;            // Size
                 bytes[3] = EndianBitConverter.Big.GetBytes((short)ts.numerator)[1];
-                bytes[4] = EndianBitConverter.Big.GetBytes((short)(Math.Log(ts.denominator, 2)))[1];
+                bytes[4] = EndianBitConverter.Big.GetBytes((short)(System.Math.Log(ts.denominator, 2)))[1];
                 bytes[5] = 0x18; // 24, 24 clock ticks in metronome click, so once every quater note. I doubt this is important, but I'm sure irony will strike.
                 bytes[6] = 0x08; // 8, a quater note should happen every quarter note.
 
@@ -622,6 +665,146 @@ namespace Moonscraper
                 }
 
                 return vlvEncodedBytesList.ToArray();
+            }
+
+            /* CHART EVENT BYTE DETERMINING 
+            ***********************************************************************************************/
+
+            static void GetStarpowerBytes(Starpower sp, out SortableBytes onEvent, out SortableBytes offEvent)
+            {
+                onEvent = new SortableBytes(sp.position, new byte[] { ON_EVENT, STARPOWER_NOTE, VELOCITY });
+                offEvent = new SortableBytes(sp.position + sp.length, new byte[] { OFF_EVENT, STARPOWER_NOTE, VELOCITY });
+            }
+
+            static SortableBytes GetChartEventBytes(ChartEvent chartEvent)
+            {
+                byte[] textEvent = MetaTextEvent(TEXT_EVENT, chartEvent.eventName);
+                return new SortableBytes(chartEvent.position, textEvent);
+            }
+
+            static void GetUnrecognisedChartNoteBytes(Note note, out SortableBytes onEvent, out SortableBytes offEvent)
+            {
+                GetNoteNumberBytes(note.rawNote, note, out onEvent, out offEvent);
+            }
+
+            static void GetNoteNumberBytes(int noteNumber, Note note, out SortableBytes onEvent, out SortableBytes offEvent)
+            {
+                onEvent = new SortableBytes(note.position, new byte[] { ON_EVENT, (byte)noteNumber, VELOCITY });
+                offEvent = new SortableBytes(note.position + note.sustain_length, new byte[] { OFF_EVENT, (byte)noteNumber, VELOCITY });
+            }
+
+            static int GetStandardNoteNumber(Note note, Song.Instrument instrument, Song.Difficulty difficulty)
+            {
+                Note.Fret_Type fret_type = note.fret_type;
+                if (instrument == Song.Instrument.Drums)
+                    fret_type = Note.SaveGuitarNoteToDrumNote(fret_type);
+
+                int difficultyNumber;
+                int noteNumber;
+
+                difficultyNumber = LookupStandardDifficultyNumber(difficulty);
+
+                switch (fret_type)
+                {
+                    case (Note.Fret_Type.OPEN):     // Open note highlighted as an SysEx event. Use green as default.
+                        if (instrument == Song.Instrument.Drums)
+                        {
+                            noteNumber = difficultyNumber + 5;
+                            break;
+                        }
+                        else
+                            goto case Note.Fret_Type.GREEN;
+                    case (Note.Fret_Type.GREEN):
+                        noteNumber = difficultyNumber + 0;
+                        break;
+                    case (Note.Fret_Type.RED):
+                        noteNumber = difficultyNumber + 1;
+                        break;
+                    case (Note.Fret_Type.YELLOW):
+                        noteNumber = difficultyNumber + 2;
+                        break;
+                    case (Note.Fret_Type.BLUE):
+                        noteNumber = difficultyNumber + 3;
+                        break;
+                    case (Note.Fret_Type.ORANGE):
+                        noteNumber = difficultyNumber + 4;
+                        break;
+                    default:
+                        throw new System.Exception("Not a standard note");
+                }
+
+                return noteNumber;
+            }
+
+            static int GetGHLNoteNumber(Note note, Song.Instrument instrument, Song.Difficulty difficulty)
+            {
+                Note.GHLive_Fret_Type fret_type = note.ghlive_fret_type;
+
+                int difficultyNumber;
+                int noteNumber;
+
+                difficultyNumber = LookupGHLDifficultyNumber(difficulty);
+
+                switch (fret_type)
+                {
+                    case (Note.GHLive_Fret_Type.OPEN):
+                        noteNumber = difficultyNumber + 0;
+                        break;
+                    case (Note.GHLive_Fret_Type.WHITE_1):
+                        noteNumber = difficultyNumber + 1;
+                        break;
+                    case (Note.GHLive_Fret_Type.WHITE_2):
+                        noteNumber = difficultyNumber + 2;
+                        break;
+                    case (Note.GHLive_Fret_Type.WHITE_3):
+                        noteNumber = difficultyNumber + 3;
+                        break;
+                    case (Note.GHLive_Fret_Type.BLACK_1):
+                        noteNumber = difficultyNumber + 4;
+                        break;
+                    case (Note.GHLive_Fret_Type.BLACK_2):
+                        noteNumber = difficultyNumber + 5;
+                        break;
+                    case (Note.GHLive_Fret_Type.BLACK_3):
+                        noteNumber = difficultyNumber + 6;
+                        break;
+
+                    default:
+                        throw new System.Exception("Not a standard note");
+                }
+
+                return noteNumber;
+            }
+
+            static int LookupStandardDifficultyNumber(Song.Difficulty difficulty)
+            {
+                int difficultyNumber;
+                switch (difficulty)
+                {
+                    case (Song.Difficulty.Easy):
+                        difficultyNumber = 60;
+                        break;
+                    case (Song.Difficulty.Medium):
+                        difficultyNumber = 72;
+                        break;
+                    case (Song.Difficulty.Hard):
+                        difficultyNumber = 84;
+                        break;
+                    case (Song.Difficulty.Expert):
+                        difficultyNumber = 96;
+                        break;
+                    default:
+                        throw new System.Exception("Not a standard difficulty");
+                }
+
+                return difficultyNumber;
+            }
+
+            static int LookupGHLDifficultyNumber(Song.Difficulty difficulty)
+            {
+                int difficultyNumber = LookupStandardDifficultyNumber(difficulty) - 2;
+
+                return difficultyNumber;
             }
         }
     }
