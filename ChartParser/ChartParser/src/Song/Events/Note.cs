@@ -133,6 +133,23 @@ namespace Moonscraper
                 TAP = 2
             }
 
+            private Chart.GameMode gameMode
+            {
+                get
+                {
+                    if (chart != null)
+                        return chart.gameMode;
+                    else
+                    {
+#if APPLICATION_MOONSCRAPER
+                        return ChartEditor.FindCurrentEditor().currentChart.gameMode;
+#else
+                        return Chart.GameMode.Unrecognised;
+#endif
+                    }
+                }
+            }
+
             public bool forced
             {
                 get
@@ -401,7 +418,7 @@ namespace Moonscraper
 
             public bool IsOpenNote()
             {
-                if (chart.gameMode == Chart.GameMode.GHLGuitar)
+                if (gameMode == Chart.GameMode.GHLGuitar)
                     return ghlive_fret_type == GHLive_Fret_Type.OPEN;
                 else
                     return fret_type == Fret_Type.OPEN;
@@ -421,7 +438,7 @@ namespace Moonscraper
                     }
                     else
                     {
-                        if ((!IsOpenNote() && next.IsOpenNote() && !(chart.gameMode == Chart.GameMode.Drums)) || (next.rawNote == rawNote))
+                        if ((!IsOpenNote() && next.IsOpenNote() && !(gameMode == Chart.GameMode.Drums)) || (next.rawNote == rawNote))
                             return next;
                     }
 
