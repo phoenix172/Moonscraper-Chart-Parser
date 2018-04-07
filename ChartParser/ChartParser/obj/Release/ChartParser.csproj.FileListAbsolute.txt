@@ -5,3 +5,5 @@ E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParse
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Release\ChartParser.dll
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Release\ChartParser.pdb
 E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Release\ChartParser.csprojResolveAssemblyReference.cache
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Release\ChartParser.csproj.CoreCompileInputs.cache
+E:\Alex's stuff\Dev\Moonscraper Chart Parser\Moonscraper-Chart-Parser\ChartParser\ChartParser\obj\Release\ChartParser.csproj.CopyComplete
