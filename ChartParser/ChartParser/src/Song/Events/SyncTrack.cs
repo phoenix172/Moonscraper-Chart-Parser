@@ -1,20 +1,11 @@
-﻿namespace Moonscraper
-{
-    namespace ChartParser
-    {
-        public abstract class SyncTrack : SongObject
-        {
-            public SyncTrack(uint _position) : base(_position) { }
+﻿// Copyright (c) 2016-2020 Alexander Ong
+// See LICENSE in project root for license information.
 
-            public override void Delete(bool update = true)
-            {
-                if (position != 0)
-                {
-                    base.Delete(update);
-                    if (song != null)
-                        song.Remove(this, update);
-                }
-            }
-        }
+namespace MoonscraperChartEditor.Song
+{
+    [System.Serializable]
+    public abstract class SyncTrack : SongObject
+    {
+        public SyncTrack(uint _position) : base(_position) { }
     }
 }

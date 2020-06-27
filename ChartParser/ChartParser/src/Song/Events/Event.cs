@@ -1,88 +1,74 @@
-﻿namespace Moonscraper
+﻿// Copyright (c) 2016-2020 Alexander Ong
+// See LICENSE in project root for license information.
+
+namespace MoonscraperChartEditor.Song
 {
-    namespace ChartParser
+    [System.Serializable]
+    public class Event : SongObject
     {
-        public class Event : SongObject
+        private readonly ID _classID = ID.Event;
+
+        public override int classID { get { return (int)_classID; } }
+
+        public string title { get; private set; }
+
+        public Event(string _title, uint _position) : base(_position)
         {
-            private readonly ID _classID = ID.Event;
+            title = _title;
+        }
 
-            public override int classID { get { return (int)_classID; } }
+        public Event(Event songEvent) : base(songEvent.tick)
+        {
+            CopyFrom(songEvent);
+        }
 
-            public string title;
+        public void CopyFrom(Event songEvent)
+        {
+            tick = songEvent.tick;
+            title = songEvent.title;
+        }
 
-            public Event(string _title, uint _position) : base(_position)
+        public override SongObject Clone()
+        {
+            return new Event(this);
+        }
+
+        public override bool AllValuesCompare<T>(T songObject)
+        {
+            if (this == songObject && (songObject as Event).title == title)
+                return true;
+            else
+                return false;
+        }
+
+        protected override bool Equals(SongObject b)
+        {
+            if (base.Equals(b))
             {
-                title = _title;
+                Event realB = b as Event;
+                return realB != null && tick == realB.tick && title == realB.title;
             }
 
-            public Event(Event songEvent) : base(songEvent.position)
-            {
-                position = songEvent.position;
-                title = songEvent.title;
-            }
+            return false;
+        }
 
-            internal override string GetSaveString()
+        protected override bool LessThan(SongObject b)
+        {
+            if (b.classID == (int)SongObject.ID.Event)
             {
-                return Globals.TABSPACE + position + " = E \"" + title + "\"" + Globals.LINE_ENDING;
-            }
-
-            public static bool regexMatch(string line)
-            {
-                return new System.Text.RegularExpressions.Regex(@"\d+ = E " + @"""[^""\\]*(?:\\.[^""\\]*)*""").IsMatch(line);
-            }
-
-            public override SongObject Clone()
-            {
-                return new Event(this);
-            }
-
-            public override bool AllValuesCompare<T>(T songObject)
-            {
-                if (this == songObject && (songObject as Event).title == title)
+                Event realB = b as Event;
+                if (tick < b.tick)
                     return true;
-                else
-                    return false;
-            }
-
-            protected override bool Equals(SongObject b)
-            {
-                if (b.GetType() == typeof(Event))
+                else if (tick == b.tick)
                 {
-                    Event realB = b as Event;
-                    if (position == realB.position && title == realB.title)
+                    if (string.Compare(title, realB.title) < 0)
                         return true;
-                    else
-                        return false;
                 }
-                else
-                    return base.Equals(b);
-            }
 
-            protected override bool LessThan(SongObject b)
-            {
-                if (b.GetType() == typeof(Event))
-                {
-                    Event realB = b as Event;
-                    if (position < b.position)
-                        return true;
-                    else if (position == b.position)
-                    {
-                        if (string.Compare(title, realB.title) < 0)
-                            return true;
-                    }
-
-                    return false;
-                }
-                else
-                    return base.LessThan(b);
+                return false;
             }
-
-            public override void Delete(bool update = true)
-            {
-                base.Delete(update);
-                if (song != null)
-                    song.Remove(this, update);
-            }
+            else
+                return base.LessThan(b);
         }
     }
 }

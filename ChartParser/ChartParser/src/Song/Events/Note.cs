@@ -1,538 +1,473 @@
-﻿// Copyright (c) 2016-2017 Alexander Ong
+﻿// Copyright (c) 2016-2020 Alexander Ong
 // See LICENSE in project root for license information.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
-namespace Moonscraper
+namespace MoonscraperChartEditor.Song
 {
-    namespace ChartParser
+    [System.Serializable]
+    public class Note : ChartObject
     {
-        public class Note : ChartObject
+        public enum GuitarFret
         {
-            private readonly ID _classID = ID.Note;
+            // Assign to the sprite array position
+            Green = 0,
+            Red = 1,
+            Yellow = 2,
+            Blue = 3,
+            Orange = 4,
+            Open = 5
+        }
 
-            public override int classID { get { return (int)_classID; } }
+        public enum DrumPad
+        {
+            // Wrapper to account for how the frets change colours between the drums and guitar tracks from the GH series  
+            Red = GuitarFret.Green,
+            Yellow = GuitarFret.Red,
+            Blue = GuitarFret.Yellow,
+            Orange = GuitarFret.Blue,
+            Green = GuitarFret.Orange,
+            Kick = GuitarFret.Open,
+        }
 
-            public uint sustain_length;
-            public int rawNote;
-            public Fret_Type fret_type
+        public enum GHLiveGuitarFret
+        {
+            // Assign to the sprite array position
+            Black1,
+            Black2,
+            Black3,
+            White1,
+            White2,
+            White3,
+            Open
+        }
+
+        public enum NoteType
+        {
+            Natural,
+            Strum,
+            Hopo,
+            Tap,
+            Cymbal,
+        }
+
+        public enum SpecialType
+        {
+            None,
+            StarPower,
+            Battle
+        }
+
+        [Flags]
+        public enum Flags
+        {
+            None = 0,
+
+            // Guitar
+            Forced = 1 << 0,
+            Tap = 1 << 1,
+
+            // RB Pro Drums
+            ProDrums_Cymbal = 1 << 6,
+        }
+
+        public const Flags PER_NOTE_FLAGS = Flags.ProDrums_Cymbal;
+
+        private readonly ID _classID = ID.Note;
+
+        public override int classID { get { return (int)_classID; } }
+
+        public uint length;
+        public int rawNote;
+        public GuitarFret guitarFret
+        {
+            get
             {
-                get
-                {
-                    return (Fret_Type)rawNote;
-                }
-                set
-                {
-                    rawNote = (int)value;
-                }
+                return (GuitarFret)rawNote;
             }
-
-            public Drum_Fret_Type drum_fret_type
+            set
             {
-                get
-                {
-                    return (Drum_Fret_Type)fret_type;
-                }
+                rawNote = (int)value;
             }
+        }
 
-            public GHLive_Fret_Type ghlive_fret_type
+        public DrumPad drumPad
+        {
+            get
             {
-                get
-                {
-                    return (GHLive_Fret_Type)rawNote;
-                }
-                set
-                {
-                    rawNote = (int)value;
-                }
+                return (DrumPad)guitarFret;
             }
+        }
 
-            /// <summary>
-            /// Properties, such as forced or taps, are stored here in a bitwise format.
-            /// </summary>
-            public Flags flags;
-
-            /// <summary>
-            /// The previous note in the linked-list.
-            /// </summary>
-            public Note previous;
-            /// <summary>
-            /// The next note in the linked-list.
-            /// </summary>
-            public Note next;
-
-            public Note(uint _position,
-                        int _rawNote,
-                        uint _sustain = 0,
-                        Flags _flags = Flags.NONE) : base(_position)
+        public GHLiveGuitarFret ghliveGuitarFret
+        {
+            get
             {
-                sustain_length = _sustain;
-                flags = _flags;
-                rawNote = _rawNote;
-
-                previous = null;
-                next = null;
+                return (GHLiveGuitarFret)rawNote;
             }
-
-            public Note(uint _position,
-                        Fret_Type _fret_type,
-                        uint _sustain = 0,
-                        Flags _flags = Flags.NONE) : base(_position)
+            set
             {
-                sustain_length = _sustain;
-                flags = _flags;
-                fret_type = _fret_type;
-
-                previous = null;
-                next = null;
+                rawNote = (int)value;
             }
+        }
 
-            public Note(Note note) : base(note.position)
-            {
-                position = note.position;
-                sustain_length = note.sustain_length;
-                flags = note.flags;
-                rawNote = note.rawNote;
-            }
+        /// <summary>
+        /// Properties, such as forced or taps, are stored here in a bitwise format.
+        /// </summary>
+        public Flags flags;
 
-            public enum Fret_Type
-            {
-                // Assign to the sprite array position
-                GREEN = 0, RED = 1, YELLOW = 2, BLUE = 3, ORANGE = 4, OPEN = 5
-            }
+        /// <summary>
+        /// The previous note in the linked-list.
+        /// </summary>
+        public Note previous;
+        /// <summary>
+        /// The next note in the linked-list.
+        /// </summary>
+        public Note next;
 
-            public enum Drum_Fret_Type
-            {
-                // Wrapper to account for how the frets change colours between the drums and guitar tracks from the GH series
-                KICK = Fret_Type.OPEN, RED = Fret_Type.GREEN, YELLOW = Fret_Type.RED, BLUE = Fret_Type.YELLOW, ORANGE = Fret_Type.BLUE, GREEN = Fret_Type.ORANGE
-            }
-
-            public enum GHLive_Fret_Type
-            {
-                // Assign to the sprite array position
-                //WHITE_1, BLACK_1, WHITE_2, BLACK_2, WHITE_3, BLACK_3, OPEN
-                BLACK_1, BLACK_2, BLACK_3, WHITE_1, WHITE_2, WHITE_3, OPEN
-            }
-
-            public enum Note_Type
-            {
-                Natural, Strum, Hopo, Tap
-            }
-
-            public enum Special_Type
-            {
-                NONE, STAR_POW, BATTLE
-            }
-
-            [Flags]
-            public enum Flags
-            {
-                NONE = 0,
-                FORCED = 1,
-                TAP = 2
-            }
-
-            private Chart.GameMode gameMode
-            {
-                get
-                {
-                    if (chart != null)
-                        return chart.gameMode;
-                    else
-                    {
+        public Chord chord { get { return new Chord(this); } }
 #if APPLICATION_MOONSCRAPER
-                        return ChartEditor.FindCurrentEditor().currentChart.gameMode;
+        new public NoteController controller
+        {
+            get { return (NoteController)base.controller; }
+            set { base.controller = value; }
+        }
+#endif 
+        public Note(uint _position,
+                    int _rawNote,
+                    uint _sustain = 0,
+                    Flags _flags = Flags.None) : base(_position)
+        {
+            length = _sustain;
+            flags = _flags;
+            rawNote = _rawNote;
+
+            previous = null;
+            next = null;
+        }
+
+        public Note(uint _position,
+                    GuitarFret _fret_type,
+                    uint _sustain = 0,
+                    Flags _flags = Flags.None) : base(_position)
+        {
+            length = _sustain;
+            flags = _flags;
+            guitarFret = _fret_type;
+
+            previous = null;
+            next = null;
+        }
+
+        public Note(Note note) : base(note.tick)
+        {
+            tick = note.tick;
+            length = note.length;
+            flags = note.flags;
+            rawNote = note.rawNote;
+        }
+
+        public void CopyFrom(Note note)
+        {
+            tick = note.tick;
+            length = note.length;
+            flags = note.flags;
+            rawNote = note.rawNote;
+        }
+
+        public Chart.GameMode gameMode
+        {
+            get
+            {
+                if (chart != null)
+                    return chart.gameMode;
+                else
+                {
+#if APPLICATION_MOONSCRAPER     // Moonscraper doesn't use note.chart.gameMode directly because notes might not have charts associated with them, esp when copy-pasting and storing undo-redo
+                    return ChartEditor.Instance.currentChart.gameMode;
 #else
-                        return Chart.GameMode.Unrecognised;
+                    return Chart.GameMode.Unrecognised;
 #endif
-                    }
                 }
             }
+        }
 
-            public bool forced
+        public bool forced
+        {
+            get
             {
-                get
-                {
-                    return (flags & Flags.FORCED) == Flags.FORCED;
-                }
-                set
-                {
-                    if (value)
-                        flags = flags | Flags.FORCED;
-                    else
-                        flags = flags & ~Flags.FORCED;
-                }
+                return (flags & Flags.Forced) == Flags.Forced;
             }
-
-            /// <summary>
-            /// Gets the next note in the linked-list that's not part of this note's chord.
-            /// </summary>
-            public Note nextSeperateNote
+            set
             {
-                get
-                {
-                    Note nextNote = next;
-                    while (nextNote != null && nextNote.position == position)
-                        nextNote = nextNote.next;
-                    return nextNote;
-                }
+                if (value)
+                    flags = flags | Flags.Forced;
+                else
+                    flags = flags & ~Flags.Forced;
             }
+        }
 
-            /// <summary>
-            /// Gets the previous note in the linked-list that's not part of this note's chord.
-            /// </summary>
-            public Note previousSeperateNote
+        /// <summary>
+        /// Gets the next note in the linked-list that's not part of this note's chord.
+        /// </summary>
+        public Note nextSeperateNote
+        {
+            get
             {
-                get
-                {
-                    Note previousNote = previous;
-                    while (previousNote != null && previousNote.position == position)
-                        previousNote = previousNote.previous;
-                    return previousNote;
-                }
+                Note nextNote = next;
+                while (nextNote != null && nextNote.tick == tick)
+                    nextNote = nextNote.next;
+                return nextNote;
             }
+        }
 
-            // Deprecated
-            internal override string GetSaveString()
+        /// <summary>
+        /// Gets the previous note in the linked-list that's not part of this note's chord.
+        /// </summary>
+        public Note previousSeperateNote
+        {
+            get
             {
-                int fretNumber = (int)fret_type;
-
-                if (fret_type == Fret_Type.OPEN)
-                    fretNumber = 7;
-
-                return Globals.TABSPACE + position + " = N " + fretNumber + " " + sustain_length + Globals.LINE_ENDING;          // 48 = N 2 0
+                Note previousNote = previous;
+                while (previousNote != null && previousNote.tick == tick)
+                    previousNote = previousNote.previous;
+                return previousNote;
             }
+        }
 
-            public override SongObject Clone()
-            {
-                return new Note(this);
-            }
+        public override SongObject Clone()
+        {
+            return new Note(this);
+        }
 
-            public override bool AllValuesCompare<T>(T songObject)
+        public override bool AllValuesCompare<T>(T songObject)
+        {
+            if (this == songObject && (songObject as Note).length == length && (songObject as Note).rawNote == rawNote && (songObject as Note).flags == flags)
+                return true;
+            else
+                return false;
+        }
+
+        protected override bool Equals(SongObject b)
+        {
+            if (b.GetType() == typeof(Note))
             {
-                if (this == songObject && (songObject as Note).sustain_length == sustain_length && (songObject as Note).rawNote == rawNote && (songObject as Note).flags == flags)
+                Note realB = b as Note;
+                if (tick == realB.tick && rawNote == realB.rawNote)
                     return true;
                 else
                     return false;
             }
+            else
+                return base.Equals(b);
+        }
 
-            public string GetFlagsSaveString()
+        protected override bool LessThan(SongObject b)
+        {
+            if (b.GetType() == typeof(Note))
             {
-                string saveString = string.Empty;
-
-                if ((flags & Flags.FORCED) == Flags.FORCED)
-                    saveString += Globals.TABSPACE + position + " = N 5 0 " + Globals.LINE_ENDING;
-
-                if ((flags & Flags.TAP) == Flags.TAP)
-                    saveString += Globals.TABSPACE + position + " = N 6 0 " + Globals.LINE_ENDING;
-
-                return saveString;
-            }
-
-            protected override bool Equals(SongObject b)
-            {
-                if (b.GetType() == typeof(Note))
+                Note realB = b as Note;
+                if (tick < b.tick)
+                    return true;
+                else if (tick == b.tick)
                 {
-                    Note realB = b as Note;
-                    if (position == realB.position && rawNote == realB.rawNote)
+                    if (rawNote < realB.rawNote)
                         return true;
-                    else
-                        return false;
                 }
-                else
-                    return base.Equals(b);
+
+                return false;
+            }
+            else
+                return base.LessThan(b);
+        }
+
+        public bool isChord
+        {
+            get
+            {
+                return ((previous != null && previous.tick == tick) || (next != null && next.tick == tick));
+            }
+        }
+
+        /// <summary>
+        /// Ignores the note's forced flag when determining whether it would be a hopo or not
+        /// </summary>
+        public bool isNaturalHopo
+        {
+            get
+            {
+                bool HOPO = false;
+
+                if (!isChord && previous != null)
+                {
+                    bool prevIsChord = previous.isChord;
+                    // Need to consider whether the previous note was a chord, and if they are the same type of note
+                    if (prevIsChord || (!prevIsChord && rawNote != previous.rawNote))
+                    {
+                        // Check distance from previous note 
+                        int HOPODistance = (int)(SongConfig.FORCED_NOTE_TICK_THRESHOLD * song.resolution / SongConfig.STANDARD_BEAT_RESOLUTION);
+
+                        if (tick - previous.tick <= HOPODistance)
+                            HOPO = true;
+                    }
+                }
+
+                return HOPO;
+            }
+        }
+
+        /// <summary>
+        /// Would this note be a hopo or not? (Ignores whether the note's tap flag is set or not.)
+        /// </summary>
+        bool isHopo
+        {
+            get
+            {
+                bool HOPO = isNaturalHopo;
+
+                // Check if forced
+                if (forced)
+                    HOPO = !HOPO;
+
+                return HOPO;
+            }
+        }
+
+        /// <summary>
+        /// Returns a bit mask representing the whole note's chord. For example, a green, red and blue chord would have a mask of 0000 1011. A yellow and orange chord would have a mask of 0001 0100. 
+        /// Shifting occurs accoring the values of the Fret_Type enum, so open notes currently output with a mask of 0010 0000.
+        /// </summary>
+        public int mask
+        {
+            get
+            {
+                //Note[] chord = this.GetChord();
+                int mask = 0;
+
+                foreach (Note note in this.chord)
+                    mask |= (1 << note.rawNote);
+
+                return mask;
+            }
+        }
+
+        public int GetMaskWithRequiredFlags(Flags flags)
+        {
+            int mask = 0;
+
+            foreach (Note note in this.chord)
+            {
+                if (note.flags == flags)
+                    mask |= (1 << note.rawNote);
             }
 
-            protected override bool LessThan(SongObject b)
+            return mask;
+        }
+
+        /// <summary>
+        /// Live calculation of what Note_Type this note would currently be. 
+        /// </summary>
+        public NoteType type
+        {
+            get
             {
-                if (b.GetType() == typeof(Note))
+                if (this.gameMode == Chart.GameMode.Drums)
                 {
-                    Note realB = b as Note;
-                    if (position < b.position)
-                        return true;
-                    else if (position == b.position)
+                    if (!this.IsOpenNote() && (flags & Flags.ProDrums_Cymbal) == Flags.ProDrums_Cymbal)
                     {
-                        if (rawNote < realB.rawNote)
-                            return true;
+                        return NoteType.Cymbal;
                     }
 
-                    return false;
+                    return NoteType.Strum;
                 }
                 else
-                    return base.LessThan(b);
-            }
-
-            public static void groupAddFlags(Note[] notes, Flags flag)
-            {
-                for (int i = 0; i < notes.Length; ++i)
                 {
-                    notes[i].flags = notes[i].flags | flag;
-                }
-            }
-
-            public bool IsChord
-            {
-                get
-                {
-                    return ((previous != null && previous.position == position) || (next != null && next.position == position));
-                }
-            }
-
-            /// <summary>
-            /// Ignores the note's forced flag when determining whether it would be a hopo or not
-            /// </summary>
-            public bool IsNaturalHopo
-            {
-                get
-                {
-                    bool HOPO = false;
-
-                    if (!IsChord && previous != null)
+                    if (!this.IsOpenNote() && (flags & Flags.Tap) == Flags.Tap)
                     {
-                        bool prevIsChord = previous.IsChord;
-                        // Need to consider whether the previous note was a chord, and if they are the same type of note
-                        if (prevIsChord || (!prevIsChord && rawNote != previous.rawNote))
-                        {
-                            // Check distance from previous note 
-                            int HOPODistance = (int)(65 * song.resolution / Song.STANDARD_BEAT_RESOLUTION);
-
-                            if (position - previous.position <= HOPODistance)
-                                HOPO = true;
-                        }
-                    }
-
-                    return HOPO;
-                }
-            }
-
-            /// <summary>
-            /// Would this note be a hopo or not? (Ignores whether the note's tap flag is set or not.)
-            /// </summary>
-            bool IsHopo
-            {
-                get
-                {
-                    bool HOPO = IsNaturalHopo;
-
-                    // Check if forced
-                    if (forced)
-                        HOPO = !HOPO;
-
-                    return HOPO;
-                }
-            }
-
-            /// <summary>
-            /// Returns a bit mask representing the whole note's chord. For example, a green, red and blue chord would have a mask of 0000 1011. A yellow and orange chord would have a mask of 0001 0100. 
-            /// Shifting occurs accoring the values of the Fret_Type enum, so open notes currently output with a mask of 0010 0000.
-            /// </summary>
-            public int mask
-            {
-                get
-                {
-                    Note[] chord = GetChord();
-                    int mask = 0;
-
-                    foreach (Note note in chord)
-                        mask |= (1 << note.rawNote);
-
-                    return mask;
-                }
-            }
-
-            /// <summary>
-            /// Live calculation of what Note_Type this note would currently be. 
-            /// </summary>
-            public Note_Type type
-            {
-                get
-                {
-                    if (!IsOpenNote() && (flags & Flags.TAP) == Flags.TAP)
-                    {
-                        return Note_Type.Tap;
+                        return NoteType.Tap;
                     }
                     else
                     {
-                        if (IsHopo)
-                            return Note_Type.Hopo;
+                        if (isHopo)
+                            return NoteType.Hopo;
                         else
-                            return Note_Type.Strum;
+                            return NoteType.Strum;
                     }
                 }
             }
+        }
 
-            /// <summary>
-            /// Gets all the notes (including this one) that share the same tick position as this one.
-            /// </summary>
-            /// <returns>Returns an array of all the notes currently sharing the same tick position as this note.</returns>
-            public Note[] GetChord()
+        public bool cannotBeForced
+        {
+            get
             {
-                List<Note> chord = new List<Note>();
-                chord.Add(this);
+                Note seperatePrevious = previousSeperateNote;
 
-                Note previous = this.previous;
-                while (previous != null && previous.position == this.position)
-                {
-                    chord.Add(previous);
-                    previous = previous.previous;
-                }
+                if ((seperatePrevious == null) || (seperatePrevious != null && mask == seperatePrevious.mask))
+                    return true;
 
-                Note next = this.next;
-                while (next != null && next.position == this.position)
-                {
-                    chord.Add(next);
-                    next = next.next;
-                }
+                return false;
+            }
+        }
 
-                return chord.ToArray();
+        public class Chord : IEnumerable<Note>
+        {
+            Note baseNote;
+            public Chord(Note note) : base()
+            {
+                baseNote = note;
             }
 
-            public void applyFlagsToChord()
+            public IEnumerator<Note> GetEnumerator()
             {
-                Note[] chordNotes = GetChord();
+                Note note = baseNote;
 
-                foreach (Note chordNote in chordNotes)
+                while (note.previous != null && note.previous.tick == note.tick)
                 {
-                    chordNote.flags = flags;
+                    note = note.previous;
                 }
-            }
 
-            public bool CannotBeForcedCheck
-            {
-                get
+                yield return note;
+
+                while (note.next != null && note.tick == note.next.tick)
                 {
-                    Note seperatePrevious = previousSeperateNote;
-
-                    if ((seperatePrevious == null) || (seperatePrevious != null && mask == seperatePrevious.mask))
-                        return true;
-
-                    return false;
+                    note = note.next;
+                    yield return note;
                 }
             }
 
-            public override void Delete(bool update = true)
+            IEnumerator IEnumerable.GetEnumerator()
             {
-                base.Delete(update);
+                return GetEnumerator();
+            }
+        }
+
+        public delegate void ChordEnumerateFn(Note note);
+        public void EnumerateChord(ChordEnumerateFn fn)
+        {
+            Note note = this;
+            while (note.previous != null && note.previous.tick == note.tick)
+            {
+                note = note.previous;
             }
 
-            public bool IsOpenNote()
+            fn(note);
+
+            while (note.next != null && note.tick == note.next.tick)
             {
-                if (gameMode == Chart.GameMode.GHLGuitar)
-                    return ghlive_fret_type == GHLive_Fret_Type.OPEN;
-                else
-                    return fret_type == Fret_Type.OPEN;
+                note = note.next;
+                fn(note);
             }
+        }
 
-            /*
-            public Note FindNextSameFretWithinSustainExtendedCheck()
-            {
-                Note next = this.next;
-
-                while (next != null)
-                {
-                    if (!GameSettings.extendedSustainsEnabled)
-                    {
-                        if ((next.IsOpenNote() || (position < next.position)) && position != next.position)
-                            return next;
-                    }
-                    else
-                    {
-                        if ((!IsOpenNote() && next.IsOpenNote() && !(gameMode == Chart.GameMode.Drums)) || (next.rawNote == rawNote))
-                            return next;
-                    }
-
-                    next = next.next;
-                }
-
-                return null;
-            }
-
-            /// <summary>
-            /// Calculates and sets the sustain length based the tick position it should end at. Will be a length of 0 if the note position is greater than the specified position.
-            /// </summary>
-            /// <param name="pos">The end-point for the sustain.</param>
-            public void SetSustainByPos(uint pos)
-            {
-                if (pos > position)
-                    sustain_length = pos - position;
-                else
-                    sustain_length = 0;
-
-                // Cap the sustain
-                Note nextFret;
-                nextFret = FindNextSameFretWithinSustainExtendedCheck();
-
-                if (nextFret != null)
-                {
-                    CapSustain(nextFret);
-                }
-            }*/
-
-            public void SetType(Note_Type type)
-            {
-                flags = Flags.NONE;
-                switch (type)
-                {
-                    case (Note_Type.Strum):
-                        if (IsChord)
-                            flags &= ~Note.Flags.FORCED;
-                        else
-                        {
-                            if (IsNaturalHopo)
-                                flags |= Note.Flags.FORCED;
-                            else
-                                flags &= ~Note.Flags.FORCED;
-                        }
-
-                        break;
-
-                    case (Note_Type.Hopo):
-                        if (!CannotBeForcedCheck)
-                        {
-                            if (IsChord)
-                                flags |= Note.Flags.FORCED;
-                            else
-                            {
-                                if (!IsNaturalHopo)
-                                    flags |= Note.Flags.FORCED;
-                                else
-                                    flags &= ~Note.Flags.FORCED;
-                            }
-                        }
-                        break;
-
-                    case (Note_Type.Tap):
-                        if (!IsOpenNote())
-                            flags |= Note.Flags.TAP;
-                        break;
-
-                    default:
-                        break;
-                }
-
-                applyFlagsToChord();
-            }
-
-            public static Fret_Type SaveGuitarNoteToDrumNote(Fret_Type fret_type)
-            {
-                if (fret_type == Fret_Type.OPEN)
-                    return Fret_Type.GREEN;
-                else if (fret_type == Fret_Type.ORANGE)
-                    return Fret_Type.OPEN;
-                else
-                    return fret_type + 1;
-            }
-
-            public static Fret_Type LoadDrumNoteToGuitarNote(Fret_Type fret_type)
-            {
-                if (fret_type == Fret_Type.OPEN)
-                    return Fret_Type.ORANGE;
-                else if (fret_type == Fret_Type.GREEN)
-                    return Fret_Type.OPEN;
-                else
-                    return fret_type - 1;
-            }
+        public bool IsOpenNote()
+        {
+            if (gameMode == Chart.GameMode.GHLGuitar)
+                return ghliveGuitarFret == GHLiveGuitarFret.Open;
+            else
+                return guitarFret == GuitarFret.Open;
         }
     }
 }

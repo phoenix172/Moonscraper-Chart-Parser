@@ -20,6 +20,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -28,6 +29,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="MiscUtil-DotNet2-r285">
@@ -47,18 +49,22 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src\IO\ByteSort.cs" />
-    <Compile Include="src\IO\ChartReader.cs" />
-    <Compile Include="src\IO\ChartWriter.cs" />
+    <Compile Include="src\Engine\Core\EnumX.cs" />
+    <Compile Include="src\Engine\Logger.cs" />
+    <Compile Include="src\IO\Chart\ChartIOHelper.cs" />
+    <Compile Include="src\IO\Midi\ByteSort.cs" />
+    <Compile Include="src\IO\Chart\ChartReader.cs" />
+    <Compile Include="src\IO\Chart\ChartWriter.cs" />
     <Compile Include="src\IO\ExportOptions.cs" />
-    <Compile Include="src\IO\MidWriter.cs" />
+    <Compile Include="src\IO\Midi\MidIOHelper.cs" />
+    <Compile Include="src\IO\Midi\MidWriter.cs" />
     <Compile Include="src\Song\Events\BPM.cs" />
     <Compile Include="src\Song\Chart.cs" />
     <Compile Include="src\Song\Events\ChartEvent.cs" />
     <Compile Include="src\Song\Events\ChartObject.cs" />
     <Compile Include="src\Song\Events\Event.cs" />
     <Compile Include="src\Globals.cs" />
-    <Compile Include="src\IO\MidReader.cs" />
+    <Compile Include="src\IO\Midi\MidReader.cs" />
     <Compile Include="src\Song\Events\Note.cs" />
     <Compile Include="src\Song\Events\Section.cs" />
     <Compile Include="src\Song\Metadata.cs" />
@@ -68,6 +74,7 @@
     <Compile Include="src\Song\Events\Starpower.cs" />
     <Compile Include="src\Song\Events\SyncTrack.cs" />
     <Compile Include="src\Song\Events\TimeSignature.cs" />
+    <Compile Include="src\Song\SongConfig.cs" />
     <Compile Include="src\Song\SongObjectHelper.cs" />
     <Compile Include="src\Song\TickFunctions.cs" />
   </ItemGroup>
