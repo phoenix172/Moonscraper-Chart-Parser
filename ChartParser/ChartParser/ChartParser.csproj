@@ -1,15 +1,26 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>Moonscraper_Chart_Parser_DotNet</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.1</TargetFramework>
+		<Nullable>enable</Nullable>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<Authors>FireFox2000000</Authors>
+		<Description>
+			This is a .NET Standard port of FireFox's original work which can be found https://github.com/FireFox2000000/Moonscraper-Chart-Parser
+			All credits go to the original author of the library.
+		</Description>
+		<PackageProjectUrl>https://github.com/phoenix172/Moonscraper-Chart-Parser</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/phoenix172/Moonscraper-Chart-Parser</RepositoryUrl>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="EndianBitConverter" Version="1.1.0" />
-    <PackageReference Include="NAudio.Midi" Version="2.0.1" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath=""/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="EndianBitConverter" Version="1.1.0" />
+		<PackageReference Include="NAudio.Midi" Version="2.0.1" />
+	</ItemGroup>
 
 </Project>

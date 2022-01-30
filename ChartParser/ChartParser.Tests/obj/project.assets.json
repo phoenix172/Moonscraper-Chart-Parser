@@ -2346,7 +2346,7 @@
       },
       "ChartParser/1.0.0": {
         "type": "project",
-        "framework": ".NETCoreApp,Version=v6.0",
+        "framework": ".NETStandard,Version=v2.1",
         "dependencies": {
           "EndianBitConverter": "1.1.0",
           "NAudio.Midi": "2.0.1"

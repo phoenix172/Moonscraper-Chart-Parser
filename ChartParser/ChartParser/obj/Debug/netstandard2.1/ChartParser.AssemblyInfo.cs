@@ -13,9 +13,9 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("FireFox2000000")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyDescriptionAttribute("This is a .NET 6 port of FireFox\'s original work which can be found https://githu" +
-    "b.com/FireFox2000000/Moonscraper-Chart-Parser\r\nAll credits go to the original au" +
-    "thor of the library.")]
+[assembly: System.Reflection.AssemblyDescriptionAttribute("\r\n\t\t\tThis is a .NET Standard port of FireFox\'s original work which can be found h" +
+    "ttps://github.com/FireFox2000000/Moonscraper-Chart-Parser\r\n\t\t\tAll credits go to " +
+    "the original author of the library.\r\n\t\t")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
 [assembly: System.Reflection.AssemblyProductAttribute("ChartParser")]

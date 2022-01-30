@@ -41,3 +41,4 @@ ipch/
 *.ipch
 *.iobj
 *.ipdb
+/ChartParser/ChartParser/bin/Debug
