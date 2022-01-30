@@ -4,8 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using MiscUtil.Conversion;
+//using MiscUtil.Conversion;
 using System.Linq;
+using BitConverter;
 using MoonscraperEngine;
 
 namespace MoonscraperChartEditor.Song.IO
@@ -642,19 +643,19 @@ namespace MoonscraperChartEditor.Song.IO
             Array.Copy(System.Text.Encoding.UTF8.GetBytes(ID.ToCharArray()), 0, header, offset, ID.Length);
             offset += ID.Length;
 
-            sourceBytes = EndianBitConverter.Big.GetBytes(headerSize);
+            sourceBytes = EndianBitConverter.BigEndian.GetBytes(headerSize);
             Array.Copy(sourceBytes, 0, header, offset, sizeof(int));
             offset += sizeof(int);
 
-            sourceBytes = EndianBitConverter.Big.GetBytes(fileFormat);
+            sourceBytes = EndianBitConverter.BigEndian.GetBytes(fileFormat);
             Array.Copy(sourceBytes, 0, header, offset, sizeof(short));
             offset += sizeof(short);
 
-            sourceBytes = EndianBitConverter.Big.GetBytes(trackCount);
+            sourceBytes = EndianBitConverter.BigEndian.GetBytes(trackCount);
             Array.Copy(sourceBytes, 0, header, offset, sizeof(short));
             offset += sizeof(short);
 
-            sourceBytes = EndianBitConverter.Big.GetBytes(resolution);
+            sourceBytes = EndianBitConverter.BigEndian.GetBytes(resolution);
             Array.Copy(sourceBytes, 0, header, offset, sizeof(short));
 
             return header;
@@ -670,7 +671,7 @@ namespace MoonscraperChartEditor.Song.IO
             Array.Copy(System.Text.Encoding.UTF8.GetBytes(ID.ToCharArray()), 0, header, offset, ID.Length);
             offset += ID.Length;
 
-            byte[] sourceBytes = EndianBitConverter.Big.GetBytes(byteLength);
+            byte[] sourceBytes = EndianBitConverter.BigEndian.GetBytes(byteLength);
             Array.Copy(sourceBytes, 0, header, offset, sizeof(int));
 
             return header;
@@ -702,7 +703,7 @@ namespace MoonscraperChartEditor.Song.IO
         static byte[] TimedEvent(uint tick, byte[] midiEvent)
         {
             byte[] deltaTime = VLVCompressedBytes(tick);
-            if (BitConverter.IsLittleEndian)
+            if (System.BitConverter.IsLittleEndian)
                 Array.Reverse(deltaTime);
 
             byte[] timedEvent = new byte[deltaTime.Length + midiEvent.Length];
@@ -719,9 +720,9 @@ namespace MoonscraperChartEditor.Song.IO
 
             char[] chars = text.ToCharArray();
 
-            byte[] header_event = EndianBitConverter.Big.GetBytes((short)(0xFF00 | (short)m_event));                // FF xx
+            byte[] header_event = EndianBitConverter.BigEndian.GetBytes((short)(0xFF00 | (short)m_event));                // FF xx
             byte[] header_text = System.Text.Encoding.UTF8.GetBytes(chars);            // dd
-            byte[] header_byte_length = EndianBitConverter.Big.GetBytes((sbyte)(header_text.Length));    // nn
+            byte[] header_byte_length = EndianBitConverter.BigEndian.GetBytes((sbyte)(header_text.Length));    // nn
 
             byte[] bytes = new byte[3 + (header_text.Length)];       // FF xx nn then whatever data
 
@@ -747,7 +748,7 @@ namespace MoonscraperChartEditor.Song.IO
             bytes[2] = 0x03;            // Size
 
             // Microseconds per quarter note for the last 3 bytes stored as a 24-bit binary
-            byte[] microPerSec = EndianBitConverter.Big.GetBytes((uint)(6.0f * Math.Pow(10, 10) / bpm.value));
+            byte[] microPerSec = EndianBitConverter.BigEndian.GetBytes((uint)(6.0f * Math.Pow(10, 10) / bpm.value));
 
             Array.Copy(microPerSec, 1, bytes, 3, 3);        // Offset of 1 and length of 3 cause 24 bit
 
@@ -762,8 +763,8 @@ namespace MoonscraperChartEditor.Song.IO
             bytes[0] = 0xFF;
             bytes[1] = TIME_SIGNATURE_EVENT;
             bytes[2] = 0x04;            // Size
-            bytes[3] = EndianBitConverter.Big.GetBytes((short)ts.numerator)[1];
-            bytes[4] = EndianBitConverter.Big.GetBytes((short)(Math.Log(ts.denominator, 2)))[1];
+            bytes[3] = EndianBitConverter.BigEndian.GetBytes((short)ts.numerator)[1];
+            bytes[4] = EndianBitConverter.BigEndian.GetBytes((short)(Math.Log(ts.denominator, 2)))[1];
             bytes[5] = 0x18; // 24, 24 clock ticks in metronome click, so once every quater note. I doubt this is important, but I'm sure irony will strike.
             bytes[6] = 0x08; // 8, a quater note should happen every quarter note.
 

@@ -372,7 +372,7 @@ namespace MoonscraperChartEditor.Song.IO
 
             for (int i = 0; i < tapAndOpenEvents.Count; ++i)
             {
-                var se1 = tapAndOpenEvents[i];
+                SysexEvent se1 = tapAndOpenEvents[i];
                 byte[] bytes = se1.GetData();
 
                 // Check for tap event
